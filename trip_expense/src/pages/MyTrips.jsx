@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import TripCard from '../components/trips/TripCard';
+import Toast from '../components/common/Toast';
 import { getCurrentUser } from '../services/authService';
-import { getAllTrips } from '../services/tripService';
+import { getAllTrips, deleteTrip } from '../services/tripService';
 import { getExpensesByTripId } from '../services/expenseService';
 import { calculateTotalExpenses, getTripStatus } from '../utils/tripCalculations';
 import { Map, Plus, Users, Compass } from 'lucide-react';
@@ -13,6 +14,7 @@ export default function MyTrips() {
   const [allTrips, setAllTrips] = useState([]);
   const [tripExpensesMap, setTripExpensesMap] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
+  const [toastMessage, setToastMessage] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,6 +34,14 @@ export default function MyTrips() {
     }
     loadTrips();
   }, []);
+
+  const handleDeleteTrip = async (tripId, tripName) => {
+    if (window.confirm(`Are you sure you want to delete "${tripName}"? All associated expenses and itinerary items will also be permanently removed.`)) {
+      await deleteTrip(tripId);
+      setAllTrips(prev => prev.filter(t => t.id !== tripId));
+      setToastMessage(`Trip "${tripName}" deleted successfully.`);
+    }
+  };
 
   if (loading) {
     return (
@@ -111,6 +121,7 @@ export default function MyTrips() {
                 key={trip.id} 
                 trip={trip} 
                 spent={calculateTotalExpenses(tripExpensesMap[trip.id] || [])} 
+                onDelete={handleDeleteTrip}
               />
             ))}
           </div>
@@ -135,11 +146,14 @@ export default function MyTrips() {
                 key={trip.id} 
                 trip={trip} 
                 spent={calculateTotalExpenses(tripExpensesMap[trip.id] || [])} 
+                onDelete={handleDeleteTrip}
               />
             ))}
           </div>
         )}
       </div>
+
+      <Toast message={toastMessage} type="success" onClose={() => setToastMessage('')} />
     </DashboardLayout>
   );
 }

@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import TripCard from '../components/trips/TripCard';
 import SummaryCard from '../components/trips/SummaryCard';
+import Toast from '../components/common/Toast';
 import { getCurrentUser } from '../services/authService';
-import { getUserTrips } from '../services/tripService';
+import { getUserTrips, deleteTrip } from '../services/tripService';
 import { getExpensesByTripId } from '../services/expenseService';
 import { formatCurrency, formatShortDate } from '../utils/formatters';
 import { calculateTotalExpenses, getTripStatus } from '../utils/tripCalculations';
@@ -13,7 +14,6 @@ import {
   Map, 
   Calendar, 
   CreditCard, 
-  TrendingUp, 
   Plus, 
   Activity, 
   ArrowRight,
@@ -25,6 +25,7 @@ export default function HomeDashboard() {
   const [userTrips, setUserTrips] = useState([]);
   const [tripExpensesMap, setTripExpensesMap] = useState({});
   const [notifications, setNotifications] = useState([]);
+  const [toastMessage, setToastMessage] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,14 +37,12 @@ export default function HomeDashboard() {
         const trips = await getUserTrips(user.id, user.email);
         setUserTrips(trips);
 
-        // Fetch expenses per trip for total metrics
         const expMap = {};
         for (const t of trips) {
           expMap[t.id] = await getExpensesByTripId(t.id);
         }
         setTripExpensesMap(expMap);
 
-        // Load notifications for activity feed
         const notifs = getItem(STORAGE_KEYS.NOTIFICATIONS, []);
         setNotifications(notifs);
       }
@@ -52,6 +51,14 @@ export default function HomeDashboard() {
 
     loadData();
   }, []);
+
+  const handleDeleteTrip = async (tripId, tripName) => {
+    if (window.confirm(`Are you sure you want to delete "${tripName}"? All associated expenses and itinerary items will also be permanently removed.`)) {
+      await deleteTrip(tripId);
+      setUserTrips(prev => prev.filter(t => t.id !== tripId));
+      setToastMessage(`Trip "${tripName}" deleted successfully.`);
+    }
+  };
 
   if (loading) {
     return (
@@ -150,7 +157,8 @@ export default function HomeDashboard() {
                 <TripCard 
                   key={trip.id} 
                   trip={trip} 
-                  spent={calculateTotalExpenses(tripExpensesMap[trip.id] || [])} 
+                  spent={calculateTotalExpenses(tripExpensesMap[trip.id] || [])}
+                  onDelete={handleDeleteTrip}
                 />
               ))}
             </div>
@@ -190,6 +198,8 @@ export default function HomeDashboard() {
           </div>
         </div>
       </div>
+
+      <Toast message={toastMessage} type="success" onClose={() => setToastMessage('')} />
     </DashboardLayout>
   );
 }

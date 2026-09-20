@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import BudgetOverview from '../components/trips/BudgetOverview';
 import SummaryCard from '../components/trips/SummaryCard';
@@ -7,7 +7,7 @@ import CategoryBreakdown from '../components/trips/CategoryBreakdown';
 import RecentExpenses from '../components/trips/RecentExpenses';
 import QuickActions from '../components/trips/QuickActions';
 
-import { getTripById } from '../services/tripService';
+import { getTripById, deleteTrip } from '../services/tripService';
 import { getExpensesByTripId as getTripExpenses } from '../services/expenseService';
 import { formatDateRange, formatCurrency } from '../utils/formatters';
 import { 
@@ -25,11 +25,13 @@ import {
   Settings, 
   Calendar, 
   IndianRupee,
-  Plus
+  Plus,
+  Trash2
 } from 'lucide-react';
 
 export default function TripDashboard() {
   const { tripId } = useParams();
+  const navigate = useNavigate();
   const currentId = tripId || 'goa-trip-2026';
 
   const [trip, setTrip] = useState(null);
@@ -64,6 +66,14 @@ export default function TripDashboard() {
       isMounted = false;
     };
   }, [currentId]);
+
+  const handleDeleteTrip = async () => {
+    const tripName = trip?.name || `${trip?.destination} Trip`;
+    if (window.confirm(`Are you sure you want to delete "${tripName}"? All associated expenses and itinerary items will also be permanently deleted.`)) {
+      await deleteTrip(trip.id);
+      navigate('/trips');
+    }
+  };
 
   if (loading) {
     return (
@@ -129,7 +139,7 @@ export default function TripDashboard() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           <button 
             className="icon-btn" 
             title="Trip Settings"
@@ -137,6 +147,17 @@ export default function TripDashboard() {
           >
             <Settings size={18} />
           </button>
+          
+          <button 
+            className="btn-icon-danger"
+            style={{ width: '40px', height: '40px' }}
+            onClick={handleDeleteTrip}
+            title="Delete Trip"
+            aria-label="Delete Trip"
+          >
+            <Trash2 size={18} />
+          </button>
+
           <Link to="/trips/new" className="btn-secondary">
             <Plus size={16} />
             <span>New Trip</span>

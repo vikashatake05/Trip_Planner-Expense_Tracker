@@ -2,15 +2,15 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { formatDateRange, formatCurrency } from '../../utils/formatters';
 import { calculateBudgetPercentage, getTripStatus } from '../../utils/tripCalculations';
-import { MapPin, Calendar, Users, ArrowRight } from 'lucide-react';
+import { MapPin, Calendar, Users, ArrowRight, Trash2 } from 'lucide-react';
 
-export default function TripCard({ trip, spent = 0 }) {
+export default function TripCard({ trip, spent = 0, onDelete }) {
   const percentage = calculateBudgetPercentage(trip.budget, spent);
   const remaining = Math.max(0, trip.budget - spent);
   const statusInfo = getTripStatus(trip.startDate, trip.endDate);
 
   return (
-    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%' }}>
+    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%', position: 'relative' }}>
       <div className="card-header-flex" style={{ marginBottom: 0 }}>
         <div>
           <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)' }}>
@@ -22,10 +22,12 @@ export default function TripCard({ trip, spent = 0 }) {
           </span>
         </div>
 
-        <span className={`status-badge ${statusInfo.statusKey}`}>
-          <span className="status-dot" />
-          {statusInfo.label}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span className={`status-badge ${statusInfo.statusKey}`}>
+            <span className="status-dot" />
+            {statusInfo.label}
+          </span>
+        </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
@@ -53,15 +55,31 @@ export default function TripCard({ trip, spent = 0 }) {
         </div>
       </div>
 
-      <div style={{ marginTop: 'auto', paddingTop: '0.5rem' }}>
+      <div style={{ marginTop: 'auto', paddingTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
         <Link 
           to={`/trips/${trip.id}/dashboard`} 
           className="btn-secondary" 
-          style={{ width: '100%', justifyContent: 'center' }}
+          style={{ flex: 1, justifyContent: 'center' }}
         >
           <span>Open Trip</span>
           <ArrowRight size={16} />
         </Link>
+
+        {onDelete && (
+          <button 
+            type="button"
+            className="btn-icon-danger"
+            style={{ width: '40px', height: '40px' }}
+            onClick={(e) => {
+              e.preventDefault();
+              onDelete(trip.id, trip.name || `${trip.destination} Trip`);
+            }}
+            title="Delete Trip"
+            aria-label="Delete Trip"
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
       </div>
     </div>
   );

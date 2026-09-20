@@ -44,6 +44,23 @@ export const updateTripMembers = async (tripId, members) => {
   return updated.find((t) => t.id === tripId);
 };
 
+export const deleteTrip = async (tripId) => {
+  const trips = await getAllTrips();
+  const updated = trips.filter((t) => t.id !== tripId);
+  setItem(STORAGE_KEYS.TRIPS, updated);
+  
+  // Clean up associated expenses & itinerary
+  const expenses = getItem(STORAGE_KEYS.EXPENSES, []);
+  const updatedExpenses = expenses.filter((e) => e.tripId !== tripId);
+  setItem(STORAGE_KEYS.EXPENSES, updatedExpenses);
+
+  const itinerary = getItem(STORAGE_KEYS.ITINERARY, []);
+  const updatedItinerary = itinerary.filter((i) => i.tripId !== tripId);
+  setItem(STORAGE_KEYS.ITINERARY, updatedItinerary);
+
+  return true;
+};
+
 export const getUserTrips = async (userId, userEmail) => {
   const trips = await getAllTrips();
   return trips.filter((t) => {
