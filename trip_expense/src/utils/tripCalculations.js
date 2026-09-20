@@ -83,9 +83,20 @@ export const calculateCategoryBreakdown = (expenses = []) => {
 
   let grandTotal = 0;
 
+  const categoryNames = {
+    accommodation: 'Accommodation',
+    food: 'Food',
+    transport: 'Transport',
+    activities: 'Activities',
+    shopping: 'Others',
+    other: 'Others',
+    others: 'Others'
+  };
+
   if (Array.isArray(expenses)) {
     expenses.forEach((exp) => {
-      const cat = exp.category || 'Others';
+      const rawCategory = String(exp.category || 'other').trim().toLowerCase();
+      const cat = categoryNames[rawCategory] || categoryNames[String(exp.category || '').trim().toLowerCase()] || 'Others';
       const amount = Number(exp.amount) || 0;
       if (totals[cat] !== undefined) {
         totals[cat] += amount;

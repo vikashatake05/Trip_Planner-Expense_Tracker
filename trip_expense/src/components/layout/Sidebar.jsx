@@ -11,7 +11,7 @@ import {
   X
 } from 'lucide-react';
 
-export default function Sidebar({ isOpen, onClose, currentTripId = 'goa-trip-2026' }) {
+export default function Sidebar({ isOpen, onClose, currentTripId }) {
   const location = useLocation();
 
   const navItems = [

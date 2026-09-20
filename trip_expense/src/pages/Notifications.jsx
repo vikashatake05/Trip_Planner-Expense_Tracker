@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { getItem, setItem, STORAGE_KEYS } from '../services/storage';
-import { MOCK_NOTIFICATIONS } from '../data/mockNotifications';
 import { formatShortDate } from '../utils/formatters';
 import { Bell, CheckCheck, CreditCard, Mail, PieChart, Calendar } from 'lucide-react';
 
@@ -17,7 +16,7 @@ export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    const items = getItem(STORAGE_KEYS.NOTIFICATIONS, MOCK_NOTIFICATIONS);
+    const items = getItem(STORAGE_KEYS.NOTIFICATIONS, []);
     setNotifications(items);
   }, []);
 

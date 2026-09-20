@@ -32,7 +32,7 @@ import {
 export default function TripDashboard() {
   const { tripId } = useParams();
   const navigate = useNavigate();
-  const currentId = tripId || 'goa-trip-2026';
+  const currentId = tripId;
 
   const [trip, setTrip] = useState(null);
   const [expenses, setExpenses] = useState([]);

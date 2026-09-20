@@ -5,18 +5,19 @@ import BalanceCard from '../components/split/BalanceCard';
 import SettlementList from '../components/split/SettlementList';
 import { getTripById } from '../services/tripService';
 import { getExpensesByTripId } from '../services/expenseService';
+import { getSettlement } from '../services/settlementService';
 import { getCurrentUser } from '../services/authService';
 import { formatCurrency } from '../utils/formatters';
-import { calculateBalances, calculateSettlements } from '../utils/settlement';
 import { calculateTotalExpenses } from '../utils/tripCalculations';
 import { PieChart, ShieldCheck } from 'lucide-react';
 
 export default function Settlement() {
   const { tripId } = useParams();
-  const currentId = tripId || 'goa-trip-2026';
+  const currentId = tripId;
 
   const [trip, setTrip] = useState(null);
   const [expenses, setExpenses] = useState([]);
+  const [settlementData, setSettlementData] = useState({ balances: [], settlements: [] });
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -25,12 +26,14 @@ export default function Settlement() {
       const user = getCurrentUser();
       setCurrentUser(user);
 
-      const [tData, expData] = await Promise.all([
+      const [tData, expData, settlementResult] = await Promise.all([
         getTripById(currentId),
-        getExpensesByTripId(currentId)
+        getExpensesByTripId(currentId),
+        getSettlement(currentId)
       ]);
       setTrip(tData);
       setExpenses(expData);
+      setSettlementData(settlementResult);
       setLoading(false);
     }
     loadData();
@@ -47,8 +50,7 @@ export default function Settlement() {
   }
 
   const members = trip?.members || [];
-  const balances = calculateBalances(expenses, members);
-  const settlements = calculateSettlements(balances);
+  const { balances, settlements } = settlementData;
   const grandTotal = calculateTotalExpenses(expenses);
 
   // Current logged in user balance item

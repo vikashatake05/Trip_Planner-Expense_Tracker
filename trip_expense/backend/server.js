@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+const connectDB = require('./config/db');
+
 const tripRoutes = require('./routes/tripRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const settlementRoutes = require('./routes/settlementRoutes');
@@ -11,6 +13,9 @@ const notFound = require('./middleware/notFoundMiddleware');
 const errorHandler = require('./middleware/errorMiddleware');
 
 const app = express();
+
+// Connect to MongoDB Atlas (if MONGO_URI is configured)
+connectDB();
 
 // Middleware
 app.use(cors());

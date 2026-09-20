@@ -11,8 +11,19 @@ const CATEGORY_ICONS = {
   'Others': ShoppingBag
 };
 
+const CATEGORY_LABELS = {
+  accommodation: 'Accommodation',
+  food: 'Food',
+  transport: 'Transport',
+  activities: 'Activities',
+  shopping: 'Others',
+  other: 'Others',
+  others: 'Others'
+};
+
 export default function ExpenseCard({ expense, tripId, onDelete }) {
-  const Icon = CATEGORY_ICONS[expense.category] || ShoppingBag;
+  const category = CATEGORY_LABELS[String(expense.category || '').toLowerCase()] || 'Others';
+  const Icon = CATEGORY_ICONS[category] || ShoppingBag;
   const splitCount = expense.splitBetween ? expense.splitBetween.length : 1;
 
   return (
@@ -26,7 +37,7 @@ export default function ExpenseCard({ expense, tripId, onDelete }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <span className="expense-title" style={{ fontSize: '1rem' }}>{expense.title}</span>
             <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-light)', padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-full)', fontWeight: 500, color: 'var(--text-muted)' }}>
-              {expense.category}
+              {category}
             </span>
           </div>
 

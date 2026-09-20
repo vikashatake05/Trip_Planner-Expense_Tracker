@@ -5,7 +5,7 @@ import { Compass, ArrowLeft } from 'lucide-react';
 
 export default function PlaceholderPage({ title = 'Feature Coming Soon' }) {
   const { tripId } = useParams();
-  const currentId = tripId || 'goa-trip-2026';
+  const currentId = tripId;
 
   return (
     <DashboardLayout currentTripId={currentId}>

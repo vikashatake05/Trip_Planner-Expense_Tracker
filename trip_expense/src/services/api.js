@@ -1,9 +1,9 @@
 import axios from 'axios';
 
 /**
- * Axios instance preconfigured for future Node.js / Express backend
+ * Axios instance preconfigured for Node.js / Express backend
  */
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:5050/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

@@ -9,10 +9,9 @@
  */
 
 import { getItem, setItem, STORAGE_KEYS } from './storage';
-import { CURRENT_MOCK_USER } from '../data/mockUsers';
 
 export const getCurrentUser = () => {
-  return getItem(STORAGE_KEYS.CURRENT_USER, CURRENT_MOCK_USER);
+  return getItem(STORAGE_KEYS.CURRENT_USER, null);
 };
 
 export const loginUser = async (email, password) => {

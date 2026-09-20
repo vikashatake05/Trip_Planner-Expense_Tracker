@@ -38,16 +38,7 @@ export const getInvitationByToken = async (token) => {
   let invite = invitations.find((inv) => inv.token === token);
   
   if (!invite) {
-    // Fallback invitation record for testing /invite/:token demo
-    invite = {
-      id: 'inv_demo',
-      tripId: 'goa-trip-2026',
-      invitedBy: 'Rahul Sharma',
-      name: 'Friend',
-      email: 'friend@example.com',
-      status: 'PENDING',
-      token
-    };
+    throw new Error('Invitation not found');
   }
 
   const trip = await getTripById(invite.tripId);
@@ -58,7 +49,11 @@ export const acceptInvitation = async (token, currentUser) => {
   const invitations = getItem(STORAGE_KEYS.INVITATIONS, []);
   let targetInvite = invitations.find((inv) => inv.token === token);
 
-  const tripId = targetInvite ? targetInvite.tripId : 'goa-trip-2026';
+  if (!targetInvite) {
+    throw new Error('Invitation not found');
+  }
+
+  const tripId = targetInvite.tripId;
   const trip = await getTripById(tripId);
 
   // Update invitation status to ACCEPTED

@@ -11,7 +11,7 @@ import { Plus, CreditCard } from 'lucide-react';
 
 export default function Expenses() {
   const { tripId } = useParams();
-  const currentId = tripId || 'goa-trip-2026';
+  const currentId = tripId;
 
   const [trip, setTrip] = useState(null);
   const [expenses, setExpenses] = useState([]);
@@ -52,7 +52,11 @@ export default function Expenses() {
 
   // Filter & sort logic
   let filtered = expenses.filter((e) => {
-    if (categoryFilter !== 'All' && e.category !== categoryFilter) return false;
+    if (
+      categoryFilter !== 'All' &&
+      String(e.category || '').toLowerCase() !== categoryFilter.toLowerCase() &&
+      !(categoryFilter === 'Others' && ['other', 'others', 'shopping'].includes(String(e.category || '').toLowerCase()))
+    ) return false;
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       const matchTitle = (e.title || '').toLowerCase().includes(q);

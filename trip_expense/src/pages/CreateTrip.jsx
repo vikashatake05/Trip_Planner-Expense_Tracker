@@ -4,21 +4,30 @@ import DashboardLayout from '../components/layout/DashboardLayout';
 import TripTypeSelector from '../components/trips/TripTypeSelector';
 import MemberInput from '../components/trips/MemberInput';
 import { saveTrip } from '../services/tripService';
+import { getCurrentUser } from '../services/authService';
 import { MapPin, Calendar, IndianRupee, ArrowRight, Minus, Plus, AlertCircle, CheckCircle2 } from 'lucide-react';
+
+const getTodayString = () => new Date().toISOString().split('T')[0];
 
 export default function CreateTrip() {
   const navigate = useNavigate();
 
+  const user = getCurrentUser();
+
   // Form State
   const [destination, setDestination] = useState('Goa');
   const [numberOfDays, setNumberOfDays] = useState(5);
-  const [startDate, setStartDate] = useState('2026-11-12');
-  const [endDate, setEndDate] = useState('2026-11-16');
+  const [startDate, setStartDate] = useState(() => getTodayString());
+  const [endDate, setEndDate] = useState(() => {
+    const end = new Date();
+    end.setDate(end.getDate() + 4);
+    return end.toISOString().split('T')[0];
+  });
   const [tripType, setTripType] = useState('Group');
   const [budget, setBudget] = useState('20000');
   const [numberOfTravelers, setNumberOfTravelers] = useState(3);
   const [members, setMembers] = useState([
-    { id: '1', name: 'Vikas', email: 'vikas@example.com' },
+    { id: user?.id || 'usr_101', name: user?.name || 'Vikas S', email: user?.email || 'vikas@example.com' },
     { id: '2', name: 'Rahul', email: 'rahul@example.com' },
     { id: '3', name: 'Arjun', email: 'arjun@example.com' }
   ]);
@@ -123,6 +132,8 @@ export default function CreateTrip() {
 
     if (!startDate) {
       newErrors.startDate = 'Start date is required';
+    } else if (startDate < getTodayString()) {
+      newErrors.startDate = 'Trip start date cannot be in the past';
     }
 
     if (!endDate) {
@@ -134,6 +145,9 @@ export default function CreateTrip() {
       const end = new Date(endDate);
       if (start > end) {
         newErrors.dateRange = 'Start date cannot be after end date';
+      }
+      if (endDate < getTodayString()) {
+        newErrors.endDate = 'Trip end date cannot be in the past';
       }
     }
 
@@ -173,19 +187,31 @@ export default function CreateTrip() {
     setIsSubmitting(true);
 
     try {
+      const currentUser = getCurrentUser();
+      const currentUserName = currentUser?.name || members[0]?.name || 'Vikas S';
+      const currentUserId = currentUser?.id || 'usr_101';
+      const currentUserEmail = currentUser?.email || 'vikas@example.com';
+
+      const tripMembers = tripType === 'Solo'
+        ? [{ id: currentUserId, name: currentUserName, email: currentUserEmail, role: 'OWNER', status: 'ACCEPTED' }]
+        : members.map((m, idx) => idx === 0
+            ? { ...m, id: m.id && m.id !== '1' ? m.id : currentUserId, name: m.name || currentUserName, email: m.email || currentUserEmail, role: 'OWNER', status: 'ACCEPTED' }
+            : { ...m, role: 'MEMBER', status: 'ACCEPTED' }
+          );
+
       const tripData = {
         name: `${destination.trim()} Trip`,
         destination: destination.trim(),
         numberOfDays: Number(numberOfDays),
+        days: Number(numberOfDays),
         startDate,
         endDate,
         tripType,
         budget: Number(budget),
         numberOfTravelers: tripType === 'Solo' ? 1 : Number(numberOfTravelers),
-        members: tripType === 'Solo' 
-          ? [{ id: '1', name: members[0]?.name || 'Creator', email: members[0]?.email || '' }]
-          : members,
-        createdBy: members[0]?.name || 'Vikas'
+        ownerId: currentUserId,
+        createdBy: currentUserName,
+        members: tripMembers
       };
 
       const createdTrip = await saveTrip(tripData);
@@ -283,6 +309,7 @@ export default function CreateTrip() {
                     type="date"
                     className={`form-input has-icon ${errors.startDate || errors.dateRange ? 'error' : ''}`}
                     value={startDate}
+                    min={getTodayString()}
                     onChange={(e) => handleStartDateChange(e.target.value)}
                   />
                 </div>
@@ -298,6 +325,7 @@ export default function CreateTrip() {
                     type="date"
                     className={`form-input has-icon ${errors.endDate || errors.dateRange ? 'error' : ''}`}
                     value={endDate}
+                    min={startDate || getTodayString()}
                     onChange={(e) => handleEndDateChange(e.target.value)}
                   />
                 </div>

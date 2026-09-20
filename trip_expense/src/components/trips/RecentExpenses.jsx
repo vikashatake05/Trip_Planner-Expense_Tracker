@@ -19,6 +19,16 @@ const CATEGORY_ICONS = {
   'Others': ShoppingBag
 };
 
+const CATEGORY_LABELS = {
+  accommodation: 'Accommodation',
+  food: 'Food',
+  transport: 'Transport',
+  activities: 'Activities',
+  shopping: 'Others',
+  other: 'Others',
+  others: 'Others'
+};
+
 export default function RecentExpenses({ expenses = [], tripId }) {
   const recentList = expenses.slice(0, 4);
 
@@ -41,7 +51,8 @@ export default function RecentExpenses({ expenses = [], tripId }) {
           </p>
         ) : (
           recentList.map((exp) => {
-            const Icon = CATEGORY_ICONS[exp.category] || ShoppingBag;
+            const category = CATEGORY_LABELS[String(exp.category || '').toLowerCase()] || 'Others';
+            const Icon = CATEGORY_ICONS[category] || ShoppingBag;
             return (
               <div key={exp.id} className="expense-item">
                 <div className="expense-left">

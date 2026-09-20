@@ -11,7 +11,7 @@ import { User, Mail, Plus } from 'lucide-react';
 
 export default function TripMembers() {
   const { tripId } = useParams();
-  const currentId = tripId || 'goa-trip-2026';
+  const currentId = tripId;
 
   const [trip, setTrip] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);

@@ -8,7 +8,7 @@ import { ArrowLeft, IndianRupee, Trash2 } from 'lucide-react';
 export default function EditExpense() {
   const { tripId, expenseId } = useParams();
   const navigate = useNavigate();
-  const currentId = tripId || 'goa-trip-2026';
+  const currentId = tripId;
 
   const [trip, setTrip] = useState(null);
   const [title, setTitle] = useState('');

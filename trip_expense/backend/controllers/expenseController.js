@@ -1,281 +1,358 @@
-const expenses = require('../data/expenseData');
-const trips = require('../data/tripData');
-const generateId = require('../utils/generateId');
+const mongoose = require('mongoose');
+const Expense = require('../models/Expense');
+const Trip = require('../models/Trip');
 
 /**
  * Helper to process and validate expense split allocations
  */
 const processSplits = (amount, splitType, participants, splitsInput) => {
   const splits = {};
+  const count = (Array.isArray(participants) && participants.length > 0) ? participants.length : 1;
+  const parts = count > 0 ? participants : ["1"];
 
-  if (splitType === 'equal') {
-    const count = participants.length;
-    if (count === 0) return { isValid: false, message: "Participants list cannot be empty" };
-    
-    const perPerson = Number((amount / count).toFixed(2));
-    let allocated = 0;
-    
-    participants.forEach((userId, idx) => {
-      if (idx === participants.length - 1) {
-        splits[userId] = Number((amount - allocated).toFixed(2));
-      } else {
-        splits[userId] = perPerson;
-        allocated += perPerson;
-      }
-    });
-
-    return { isValid: true, splits };
-  }
-
-  if (splitType === 'custom') {
-    if (!Array.isArray(splitsInput) && typeof splitsInput !== 'object') {
-      return { isValid: false, message: "Custom splits must be provided" };
-    }
-
-    let customSum = 0;
+  if (splitsInput && typeof splitsInput === 'object' && Object.keys(splitsInput).length > 0) {
     if (Array.isArray(splitsInput)) {
       splitsInput.forEach((s) => {
-        const amt = Number(s.amount) || 0;
-        splits[s.userId] = amt;
-        customSum += amt;
+        if (s && (s.userId || s.id)) {
+          splits[s.userId || s.id] = Number(s.amount || s.percentage || 0);
+        }
       });
     } else {
-      Object.keys(splitsInput).forEach((userId) => {
-        const amt = Number(splitsInput[userId]) || 0;
-        splits[userId] = amt;
-        customSum += amt;
+      Object.keys(splitsInput).forEach((key) => {
+        splits[key] = Number(splitsInput[key]) || 0;
+      });
+    }
+    const inputTotal = Object.values(splits).reduce((sum, value) => sum + value, 0);
+    if (splitType === 'percentage' && Math.abs(inputTotal - 100) <= 0.01) {
+      Object.keys(splits).forEach((key) => {
+        splits[key] = Number(((amount * splits[key]) / 100).toFixed(2));
       });
     }
 
-    if (Math.abs(amount - customSum) > 0.05) {
-      return { 
-        isValid: false, 
-        message: `Sum of custom split amounts (${customSum}) does not equal total expense amount (${amount})` 
-      };
-    }
-
-    return { isValid: true, splits };
-  }
-
-  if (splitType === 'percentage') {
-    let totalPct = 0;
-    
-    if (Array.isArray(splitsInput)) {
-      splitsInput.forEach((s) => {
-        const pct = Number(s.percentage) || 0;
-        totalPct += pct;
-        splits[s.userId] = Number(((amount * pct) / 100).toFixed(2));
-      });
-    } else {
-      Object.keys(splitsInput).forEach((userId) => {
-        const pct = Number(splitsInput[userId]) || 0;
-        totalPct += pct;
-        splits[userId] = Number(((amount * pct) / 100).toFixed(2));
-      });
-    }
-
-    if (Math.abs(100 - totalPct) > 0.01) {
+    const splitTotal = Object.values(splits).reduce((sum, value) => sum + value, 0);
+    if (Math.abs(splitTotal - amount) > 0.05) {
       return {
         isValid: false,
-        message: `Total percentage (${totalPct}%) must equal 100%`
+        message: splitType === 'percentage'
+          ? 'Percentage splits must total 100% or their calculated amounts must equal the expense amount'
+          : 'Split amounts must equal the expense amount'
       };
     }
 
     return { isValid: true, splits };
   }
 
-  return { isValid: false, message: 'Invalid splitType. Allowed: "equal", "custom", "percentage"' };
+  // Default equal allocation
+  const perPerson = Number((amount / count).toFixed(2));
+  let allocated = 0;
+  parts.forEach((userId, idx) => {
+    if (idx === parts.length - 1) {
+      splits[userId] = Number((amount - allocated).toFixed(2));
+    } else {
+      splits[userId] = perPerson;
+      allocated += perPerson;
+    }
+  });
+
+  return { isValid: true, splits };
 };
 
 /**
  * @desc    Create a new expense
  * @route   POST /api/expenses
  */
-const createExpense = (req, res) => {
-  const { tripId, description, amount, category, paidBy, splitType, participants, splits: splitsInput, date } = req.body;
+const createExpense = async (req, res) => {
+  try {
+    const { 
+      tripId, 
+      description, 
+      title, 
+      amount, 
+      category, 
+      paidBy, 
+      paidById, 
+      splitType, 
+      splitMethod, 
+      participants, 
+      splitBetween, 
+      splits: splitsInput, 
+      splitShares, 
+      date 
+    } = req.body;
 
-  // Validation
-  if (!tripId || !description || !amount || !paidBy) {
-    return res.status(400).json({
-      success: false,
-      message: "Please provide tripId, description, amount, and paidBy"
-    });
-  }
+    const expDesc = (title || description || 'Expense').trim();
+    const payer = String(paidBy || paidById || 'Traveler');
 
-  const numericAmount = Number(amount);
-  if (isNaN(numericAmount) || numericAmount <= 0) {
-    return res.status(400).json({
-      success: false,
-      message: "Amount must be greater than 0"
-    });
-  }
+    if (!tripId || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide tripId and amount"
+      });
+    }
 
-  // Check trip existence
-  const targetTrip = trips.find((t) => t.id === String(tripId));
-  if (!targetTrip) {
-    return res.status(404).json({
-      success: false,
-      message: "Trip not found"
-    });
-  }
+    const numericAmount = Number(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount must be greater than 0"
+      });
+    }
 
-  const parts = Array.isArray(participants) && participants.length > 0
-    ? participants
-    : targetTrip.members.map(m => m.id);
+    let targetTrip = null;
+    if (mongoose.Types.ObjectId.isValid(tripId)) {
+      targetTrip = await Trip.findById(tripId);
+    }
+    if (!targetTrip) {
+      targetTrip = await Trip.findOne({ id: tripId });
+    }
 
-  const type = splitType ? String(splitType).toLowerCase() : 'equal';
-  const splitResult = processSplits(numericAmount, type, parts, splitsInput);
+    if (!targetTrip) {
+      return res.status(404).json({ success: false, message: "Trip not found" });
+    }
 
-  if (!splitResult.isValid) {
-    return res.status(400).json({
-      success: false,
-      message: splitResult.message
-    });
-  }
+    const expenseDate = date || new Date().toISOString().split('T')[0];
+    if (targetTrip.startDate && targetTrip.endDate && (expenseDate < targetTrip.startDate || expenseDate > targetTrip.endDate)) {
+      return res.status(400).json({
+        success: false,
+        message: `Expense date must be between ${targetTrip.startDate} and ${targetTrip.endDate}`
+      });
+    }
 
-  const newExpense = {
-    id: generateId('exp'),
-    tripId: String(tripId),
-    description: description.trim(),
-    amount: numericAmount,
-    category: category ? String(category).toLowerCase() : 'other',
-    paidBy: String(paidBy),
-    splitType: type,
-    participants: parts,
-    splits: splitResult.splits,
-    date: date || new Date().toISOString().split('T')[0],
-    createdAt: new Date().toISOString()
-  };
+    const memberIds = (targetTrip.members || []).map(m => m.id || m.userId || m.name);
+    const rawParts = (Array.isArray(participants) && participants.length > 0)
+      ? participants
+      : ((Array.isArray(splitBetween) && splitBetween.length > 0) ? splitBetween : memberIds);
 
-  expenses.push(newExpense);
+    const parts = rawParts.length > 0 ? rawParts : ["1"];
 
-  res.status(201).json({
-    success: true,
-    message: "Expense created successfully",
-    data: newExpense
-  });
-};
+    const rawType = (splitType || splitMethod || 'equal').toLowerCase();
+    const type = ['equal', 'custom', 'percentage'].includes(rawType) ? rawType : 'equal';
 
-/**
- * @desc    Get expenses for a trip
- * @route   GET /api/expenses/trip/:tripId
- */
-const getExpensesByTrip = (req, res) => {
-  const { tripId } = req.params;
-  const tripExpenses = expenses.filter((e) => e.tripId === String(tripId));
+    const inputSplits = splitsInput || splitShares;
+    const splitResult = processSplits(numericAmount, type, parts, inputSplits);
 
-  res.status(200).json({
-    success: true,
-    count: tripExpenses.length,
-    data: tripExpenses
-  });
-};
-
-/**
- * @desc    Get single expense by ID
- * @route   GET /api/expenses/:id
- */
-const getExpenseById = (req, res) => {
-  const expense = expenses.find((e) => e.id === req.params.id);
-
-  if (!expense) {
-    return res.status(404).json({
-      success: false,
-      message: "Expense not found"
-    });
-  }
-
-  res.status(200).json({
-    success: true,
-    data: expense
-  });
-};
-
-/**
- * @desc    Update an expense
- * @route   PATCH /api/expenses/:id
- */
-const updateExpense = (req, res) => {
-  const expenseIndex = expenses.findIndex((e) => e.id === req.params.id);
-
-  if (expenseIndex === -1) {
-    return res.status(404).json({
-      success: false,
-      message: "Expense not found"
-    });
-  }
-
-  const current = expenses[expenseIndex];
-  const { description, amount, category, paidBy, splitType, participants, splits: splitsInput, date } = req.body;
-
-  const newAmount = amount !== undefined ? Number(amount) : current.amount;
-  if (isNaN(newAmount) || newAmount <= 0) {
-    return res.status(400).json({
-      success: false,
-      message: "Amount must be greater than 0"
-    });
-  }
-
-  const newParts = participants !== undefined ? participants : current.participants;
-  const newType = splitType !== undefined ? String(splitType).toLowerCase() : current.splitType;
-
-  let splitResult = { isValid: true, splits: current.splits };
-  if (amount !== undefined || splitType !== undefined || participants !== undefined || splitsInput !== undefined) {
-    splitResult = processSplits(newAmount, newType, newParts, splitsInput || current.splits);
     if (!splitResult.isValid) {
       return res.status(400).json({
         success: false,
         message: splitResult.message
       });
     }
+
+    const cat = category ? String(category).trim().toLowerCase() : 'other';
+    const categoryAliases = {
+      food: 'food',
+      accommodation: 'accommodation',
+      stay: 'accommodation',
+      transport: 'transport',
+      activities: 'activities',
+      activity: 'activities',
+      shopping: 'shopping',
+      other: 'other',
+      others: 'other'
+    };
+    const validCat = categoryAliases[cat] || 'other';
+
+    const expensePayload = {
+      tripId: String(targetTrip.id || targetTrip._id || tripId),
+      description: expDesc,
+      title: expDesc,
+      amount: numericAmount,
+      category: validCat,
+      paidBy: payer,
+      paidById: String(paidById || payer),
+      splitType: type,
+      splitMethod: type.toUpperCase(),
+      participants: parts,
+      splitBetween: parts,
+      splits: splitResult.splits,
+      splitShares: splitResult.splits,
+      date: expenseDate
+    };
+
+    const newExpense = await Expense.create(expensePayload);
+    res.status(201).json({
+      success: true,
+      message: "Expense created successfully",
+      data: newExpense
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
+};
 
-  const updatedExpense = {
-    ...current,
-    description: description !== undefined ? description.trim() : current.description,
-    amount: newAmount,
-    category: category !== undefined ? String(category).toLowerCase() : current.category,
-    paidBy: paidBy !== undefined ? String(paidBy) : current.paidBy,
-    splitType: newType,
-    participants: newParts,
-    splits: splitResult.splits,
-    date: date !== undefined ? date : current.date,
-    updatedAt: new Date().toISOString()
-  };
+/**
+ * @desc    Get expenses for a trip
+ * @route   GET /api/expenses/trip/:tripId
+ */
+const getExpensesByTrip = async (req, res) => {
+  try {
+    const { tripId } = req.params;
+    const dbExpenses = await Expense.find({ tripId: String(tripId) }).sort({ createdAt: -1 });
+    res.status(200).json({
+      success: true,
+      count: dbExpenses.length,
+      data: dbExpenses
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
-  expenses[expenseIndex] = updatedExpense;
+/**
+ * @desc    Get all expenses
+ * @route   GET /api/expenses
+ */
+const getAllExpenses = async (req, res) => {
+  try {
+    const expenses = await Expense.find().sort({ createdAt: -1 });
+    res.status(200).json({ success: true, count: expenses.length, data: expenses });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
-  res.status(200).json({
-    success: true,
-    message: "Expense updated successfully",
-    data: updatedExpense
-  });
+/**
+ * @desc    Get single expense by ID
+ * @route   GET /api/expenses/:id
+ */
+const getExpenseById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let expense = null;
+
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      expense = await Expense.findById(id);
+    }
+    if (!expense) {
+      expense = await Expense.findOne({ id });
+    }
+
+    if (!expense) {
+      return res.status(404).json({ success: false, message: "Expense not found" });
+    }
+
+    res.status(200).json({ success: true, data: expense });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * @desc    Update an expense
+ * @route   PATCH /api/expenses/:id
+ */
+const updateExpense = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { description, title, amount, category, paidBy, paidById, splitType, splitMethod, participants, splitBetween, splits: splitsInput, splitShares, date } = req.body;
+
+    let current = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      current = await Expense.findById(id);
+    }
+    if (!current) {
+      current = await Expense.findOne({ id });
+    }
+
+    if (!current) {
+      return res.status(404).json({ success: false, message: "Expense not found" });
+    }
+
+    const newAmount = amount !== undefined ? Number(amount) : current.amount;
+    if (isNaN(newAmount) || newAmount <= 0) {
+      return res.status(400).json({ success: false, message: "Amount must be greater than 0" });
+    }
+
+    const newParts = participants || splitBetween || current.participants;
+    const newType = (splitType || splitMethod || current.splitType).toLowerCase();
+
+    let splitResult = { isValid: true, splits: current.splits };
+    if (amount !== undefined || splitType !== undefined || splitMethod !== undefined || participants !== undefined || splitBetween !== undefined || splitsInput !== undefined || splitShares !== undefined) {
+      splitResult = processSplits(newAmount, newType, newParts, splitsInput || splitShares || current.splits);
+      if (!splitResult.isValid) {
+        return res.status(400).json({ success: false, message: splitResult.message });
+      }
+    }
+
+    const expDesc = (title || description || current.description).trim();
+    const payer = String(paidBy || paidById || current.paidBy);
+
+    const updateData = {
+      description: expDesc,
+      title: expDesc,
+      amount: newAmount,
+      category: category !== undefined
+        ? ({
+            food: 'food',
+            accommodation: 'accommodation',
+            stay: 'accommodation',
+            transport: 'transport',
+            activities: 'activities',
+            activity: 'activities',
+            shopping: 'shopping',
+            other: 'other',
+            others: 'other'
+          }[String(category).trim().toLowerCase()] || 'other')
+        : current.category,
+      paidBy: payer,
+      paidById: String(paidById || payer),
+      splitType: newType,
+      splitMethod: newType.toUpperCase(),
+      participants: newParts,
+      splitBetween: newParts,
+      splits: splitResult.splits,
+      splitShares: splitResult.splits,
+      date: date !== undefined ? date : current.date
+    };
+
+    let updated = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      updated = await Expense.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
+    } else {
+      updated = await Expense.findOneAndUpdate({ id }, updateData, { new: true, runValidators: true });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Expense updated successfully",
+      data: updated
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 /**
  * @desc    Delete an expense
  * @route   DELETE /api/expenses/:id
  */
-const deleteExpense = (req, res) => {
-  const expenseIndex = expenses.findIndex((e) => e.id === req.params.id);
+const deleteExpense = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let deleted = null;
 
-  if (expenseIndex === -1) {
-    return res.status(404).json({
-      success: false,
-      message: "Expense not found"
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      deleted = await Expense.findByIdAndDelete(id);
+    } else {
+      deleted = await Expense.findOneAndDelete({ id });
+    }
+
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: "Expense not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Expense deleted successfully"
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
-
-  expenses.splice(expenseIndex, 1);
-
-  res.status(200).json({
-    success: true,
-    message: "Expense deleted successfully"
-  });
 };
 
 module.exports = {
   createExpense,
+  getAllExpenses,
   getExpensesByTrip,
   getExpenseById,
   updateExpense,

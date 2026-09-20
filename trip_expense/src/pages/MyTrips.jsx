@@ -54,8 +54,21 @@ export default function MyTrips() {
   }
 
   // Filter user created vs joined trips
-  const createdTrips = allTrips.filter((t) => t.ownerId === currentUser?.id || t.createdBy === currentUser?.name);
-  const joinedTrips = allTrips.filter((t) => t.ownerId !== currentUser?.id && t.createdBy !== currentUser?.name);
+  const createdTrips = allTrips.filter((t) => {
+    if (!currentUser) return true;
+    const isOwnerIdMatch = t.ownerId && String(t.ownerId) === String(currentUser.id);
+    const isCreatedByMatch = t.createdBy && (
+      t.createdBy.toLowerCase() === currentUser.name?.toLowerCase() ||
+      currentUser.name?.toLowerCase().includes(t.createdBy.toLowerCase()) ||
+      t.createdBy.toLowerCase().includes(currentUser.name?.toLowerCase())
+    );
+    const isMemberOwner = Array.isArray(t.members) && t.members.some(m => 
+      (m.userId === currentUser.id || m.id === currentUser.id) && m.role === 'OWNER'
+    );
+    return isOwnerIdMatch || isCreatedByMatch || isMemberOwner;
+  });
+
+  const joinedTrips = allTrips.filter((t) => !createdTrips.some(ct => ct.id === t.id));
 
   // Tab filtering logic
   const filterByTab = (tripsList) => {

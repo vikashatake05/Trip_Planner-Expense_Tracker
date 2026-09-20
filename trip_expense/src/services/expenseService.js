@@ -1,59 +1,60 @@
 /**
  * Expense Service for TripLedger.
- * Manages expense CRUD operations, split allocations, and filters.
- * 
- * FUTURE API ENDPOINTS:
- * GET /api/trips/:tripId/expenses
- * POST /api/trips/:tripId/expenses
- * PUT /api/expenses/:expenseId
- * DELETE /api/expenses/:expenseId
+ * Connects directly to Express REST API on http://localhost:5050/api/expenses
  */
 
-import { getItem, setItem, STORAGE_KEYS } from './storage';
-import { INITIAL_MOCK_EXPENSES } from '../data/mockExpenses';
+import api from './api';
 
 export const getExpensesByTripId = async (tripId) => {
-  const expenses = getItem(STORAGE_KEYS.EXPENSES, INITIAL_MOCK_EXPENSES);
-  return expenses.filter((e) => e.tripId === tripId);
+  try {
+    const res = await api.get(`/expenses/trip/${tripId}`);
+    if (res.data && res.data.success && Array.isArray(res.data.data)) {
+      return res.data.data;
+    }
+  } catch (err) {
+    throw new Error(`Unable to load expenses: ${err.message}`);
+  }
 };
 
 export const getExpenseById = async (expenseId) => {
-  const expenses = getItem(STORAGE_KEYS.EXPENSES, INITIAL_MOCK_EXPENSES);
-  return expenses.find((e) => e.id === expenseId) || null;
+  try {
+    const res = await api.get(`/expenses/${expenseId}`);
+    if (res.data && res.data.success && res.data.data) {
+      return res.data.data;
+    }
+  } catch (err) {
+    throw new Error(`Unable to load expense: ${err.message}`);
+  }
 };
 
 export const addExpense = async (tripId, expenseData) => {
-  const expenses = getItem(STORAGE_KEYS.EXPENSES, INITIAL_MOCK_EXPENSES);
-  
-  const newExpense = {
-    id: `exp_${Date.now()}`,
-    tripId,
-    ...expenseData,
-    createdAt: new Date().toISOString()
-  };
-
-  const updated = [newExpense, ...expenses];
-  setItem(STORAGE_KEYS.EXPENSES, updated);
-  return newExpense;
+  const payload = { tripId: String(tripId), ...expenseData };
+  try {
+    const res = await api.post('/expenses', payload);
+    if (res.data && res.data.success && res.data.data) {
+      const createdExpense = res.data.data;
+      return createdExpense;
+    }
+  } catch (err) {
+    throw new Error(`Unable to add expense: ${err.message}`);
+  }
 };
 
 export const updateExpense = async (expenseId, expenseData) => {
-  const expenses = getItem(STORAGE_KEYS.EXPENSES, INITIAL_MOCK_EXPENSES);
-  
-  const updated = expenses.map((e) => {
-    if (e.id === expenseId) {
-      return { ...e, ...expenseData, updatedAt: new Date().toISOString() };
+  try {
+    const res = await api.patch(`/expenses/${expenseId}`, expenseData);
+    if (res.data && res.data.success && res.data.data) {
+      return res.data.data;
     }
-    return e;
-  });
-
-  setItem(STORAGE_KEYS.EXPENSES, updated);
-  return updated.find((e) => e.id === expenseId);
+  } catch (err) {
+    throw new Error(`Unable to update expense: ${err.message}`);
+  }
 };
 
 export const deleteExpense = async (expenseId) => {
-  const expenses = getItem(STORAGE_KEYS.EXPENSES, INITIAL_MOCK_EXPENSES);
-  const filtered = expenses.filter((e) => e.id !== expenseId);
-  setItem(STORAGE_KEYS.EXPENSES, filtered);
-  return true;
+  try {
+    await api.delete(`/expenses/${expenseId}`);
+  } catch (err) {
+    throw new Error(`Unable to delete expense: ${err.message}`);
+  }
 };

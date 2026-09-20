@@ -8,7 +8,7 @@ import { PieChart, Users, ArrowRight } from 'lucide-react';
 
 export default function SplitExpense() {
   const { tripId } = useParams();
-  const currentId = tripId || 'goa-trip-2026';
+  const currentId = tripId;
 
   const [trip, setTrip] = useState(null);
   const [expenses, setExpenses] = useState([]);
@@ -16,6 +16,11 @@ export default function SplitExpense() {
 
   useEffect(() => {
     async function loadData() {
+      if (!currentId) {
+        setLoading(false);
+        return;
+      }
+
       const [tData, expData] = await Promise.all([
         getTripById(currentId),
         getExpensesByTripId(currentId)
@@ -26,6 +31,22 @@ export default function SplitExpense() {
     }
     loadData();
   }, [currentId]);
+
+  if (!currentId) {
+    return (
+      <DashboardLayout>
+        <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+          <h2>Trip not selected</h2>
+          <p style={{ color: 'var(--text-muted)', margin: '1rem 0' }}>
+            Open a trip from My Trips to view its expenses.
+          </p>
+          <Link to="/trips" className="btn-primary" style={{ display: 'inline-flex', width: 'auto' }}>
+            Open My Trips
+          </Link>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (loading) {
     return (

@@ -10,7 +10,7 @@ import { Calendar, Plus, MapPin, Clock } from 'lucide-react';
 
 export default function TripPlan() {
   const { tripId } = useParams();
-  const currentId = tripId || 'goa-trip-2026';
+  const currentId = tripId;
 
   const [trip, setTrip] = useState(null);
   const [itinerary, setItinerary] = useState([]);

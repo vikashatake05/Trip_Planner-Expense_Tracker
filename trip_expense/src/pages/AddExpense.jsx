@@ -6,10 +6,12 @@ import { addExpense } from '../services/expenseService';
 import { calculateEqualSplit, calculatePercentageSplit, validateCustomSplit } from '../utils/expenseCalculations';
 import { ArrowLeft, IndianRupee, AlertCircle, CheckCircle2 } from 'lucide-react';
 
+const getTodayString = () => new Date().toISOString().split('T')[0];
+
 export default function AddExpense() {
   const { tripId } = useParams();
   const navigate = useNavigate();
-  const currentId = tripId || 'goa-trip-2026';
+  const currentId = tripId;
 
   const [trip, setTrip] = useState(null);
   const [title, setTitle] = useState('');
@@ -29,6 +31,11 @@ export default function AddExpense() {
     async function loadTrip() {
       const tData = await getTripById(currentId);
       setTrip(tData);
+      if (tData?.startDate && tData?.endDate) {
+        const today = getTodayString();
+        const firstAllowedDate = tData.startDate > today ? tData.startDate : today;
+        setDate(firstAllowedDate <= tData.endDate ? firstAllowedDate : tData.startDate);
+      }
       if (tData && tData.members && tData.members.length > 0) {
         setPaidById(tData.members[0].userId || tData.members[0].id || 'usr_101');
         setSplitBetween(tData.members.map(m => m.userId || m.id || m.name));
@@ -60,6 +67,10 @@ export default function AddExpense() {
     if (!category) errs.category = 'Category is required';
     if (!paidById) errs.paidBy = 'Payer is required';
     if (splitBetween.length === 0) errs.splitBetween = 'Select at least one member to split between';
+
+    if (trip?.startDate && trip?.endDate && (date < trip.startDate || date > trip.endDate)) {
+      errs.date = `Date must be between ${trip.startDate} and ${trip.endDate}`;
+    }
 
     if (splitMethod === 'CUSTOM') {
       const check = validateCustomSplit(Number(amount), customAmounts);
@@ -210,11 +221,14 @@ export default function AddExpense() {
                 <label className="form-label">Date *</label>
                 <input
                   type="date"
-                  className="form-input"
+                  className={`form-input ${errors.date ? 'error' : ''}`}
                   value={date}
+                  min={trip?.startDate}
+                  max={trip?.endDate}
                   onChange={(e) => setDate(e.target.value)}
                   required
                 />
+                {errors.date && <span className="error-text">{errors.date}</span>}
               </div>
             </div>
 

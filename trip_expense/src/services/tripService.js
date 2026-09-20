@@ -1,71 +1,69 @@
 /**
  * Service layer for TripLedger Trips Management.
+ * Connects directly to Express REST API on http://localhost:5050/api/trips
  */
 
-import { getItem, setItem, STORAGE_KEYS } from './storage';
-import { MOCK_TRIPS } from '../data/mockTrips';
+import api from './api';
 import { getExpensesByTripId } from './expenseService';
 
 export const getAllTrips = async () => {
-  return getItem(STORAGE_KEYS.TRIPS, MOCK_TRIPS);
+  try {
+    const res = await api.get('/trips');
+    if (res.data && res.data.success && Array.isArray(res.data.data)) {
+      return res.data.data;
+    }
+  } catch (err) {
+    throw new Error(`Unable to load trips: ${err.message}`);
+  }
 };
 
 export const getTripById = async (tripId) => {
-  const trips = await getAllTrips();
-  const found = trips.find((t) => t.id === tripId);
-  return found || MOCK_TRIPS[0];
+  try {
+    const res = await api.get(`/trips/${tripId}`);
+    if (res.data && res.data.success && res.data.data) {
+      return res.data.data;
+    }
+  } catch (err) {
+    throw new Error(`Unable to load trip: ${err.message}`);
+  }
 };
 
 export const saveTrip = async (tripData) => {
-  const trips = await getAllTrips();
-  
-  const generatedId = `trip_${Date.now()}`;
-  const newTrip = {
-    id: generatedId,
-    ...tripData,
-    createdAt: new Date().toISOString()
-  };
-
-  const updated = [newTrip, ...trips];
-  setItem(STORAGE_KEYS.TRIPS, updated);
-  
-  return newTrip;
+  try {
+    const res = await api.post('/trips', tripData);
+    if (res.data && res.data.success && res.data.data) {
+      const createdTrip = res.data.data;
+      return createdTrip;
+    }
+  } catch (err) {
+    throw new Error(`Unable to save trip: ${err.message}`);
+  }
 };
 
 export const updateTripMembers = async (tripId, members) => {
-  const trips = await getAllTrips();
-  const updated = trips.map((t) => {
-    if (t.id === tripId) {
-      return { ...t, members, numberOfTravelers: members.length };
+  try {
+    const res = await api.patch(`/trips/${tripId}`, { members, numberOfTravelers: members.length });
+    if (res.data && res.data.success) {
+      return res.data.data;
     }
-    return t;
-  });
-  setItem(STORAGE_KEYS.TRIPS, updated);
-  return updated.find((t) => t.id === tripId);
+  } catch (err) {
+    throw new Error(`Unable to update trip members: ${err.message}`);
+  }
 };
 
 export const deleteTrip = async (tripId) => {
-  const trips = await getAllTrips();
-  const updated = trips.filter((t) => t.id !== tripId);
-  setItem(STORAGE_KEYS.TRIPS, updated);
-  
-  // Clean up associated expenses & itinerary
-  const expenses = getItem(STORAGE_KEYS.EXPENSES, []);
-  const updatedExpenses = expenses.filter((e) => e.tripId !== tripId);
-  setItem(STORAGE_KEYS.EXPENSES, updatedExpenses);
-
-  const itinerary = getItem(STORAGE_KEYS.ITINERARY, []);
-  const updatedItinerary = itinerary.filter((i) => i.tripId !== tripId);
-  setItem(STORAGE_KEYS.ITINERARY, updatedItinerary);
-
-  return true;
+  try {
+    await api.delete(`/trips/${tripId}`);
+  } catch (err) {
+    throw new Error(`Unable to delete trip: ${err.message}`);
+  }
 };
 
 export const getUserTrips = async (userId, userEmail) => {
   const trips = await getAllTrips();
   return trips.filter((t) => {
-    if (t.ownerId === userId) return true;
-    if (t.members && t.members.some(m => m.userId === userId || m.email.toLowerCase() === (userEmail || '').toLowerCase())) {
+    if (String(t.ownerId) === String(userId)) return true;
+    if (t.members && t.members.some(m => String(m.userId) === String(userId) || (m.email && m.email.toLowerCase() === (userEmail || '').toLowerCase()))) {
       return true;
     }
     return false;
