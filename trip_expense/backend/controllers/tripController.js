@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Trip = require('../models/Trip');
 const Expense = require('../models/Expense');
 const Itinerary = require('../models/Itinerary');
+const { findOwnedTrip, findOwnedTripById } = require('../utils/ownership');
 
 /**
  * @desc    Create a new trip
@@ -48,6 +49,7 @@ const createTrip = async (req, res) => {
 
     const newTrip = await Trip.create({
       name: name.trim(),
+      user: req.user._id,
       destination: destination.trim(),
       startDate,
       endDate,
@@ -56,8 +58,8 @@ const createTrip = async (req, res) => {
       budget: Number(budget),
       numberOfTravelers: Number(numberOfTravelers) || memberList.length,
       tripType: type,
-      ownerId: ownerId || (memberList[0] ? memberList[0].id : undefined),
-      createdBy: createdBy || (memberList[0] ? memberList[0].name : undefined),
+      ownerId: String(req.user._id),
+      createdBy: req.user.name,
       members: memberList
     });
 
@@ -77,7 +79,7 @@ const createTrip = async (req, res) => {
  */
 const getAllTrips = async (req, res) => {
   try {
-    const dbTrips = await Trip.find().sort({ createdAt: -1 });
+    const dbTrips = await Trip.find({ user: req.user._id }).sort({ createdAt: -1 });
     res.status(200).json({
       success: true,
       count: dbTrips.length,
@@ -95,14 +97,7 @@ const getAllTrips = async (req, res) => {
 const getTripById = async (req, res) => {
   try {
     const { id } = req.params;
-    let trip = null;
-
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      trip = await Trip.findById(id);
-    }
-    if (!trip) {
-      trip = await Trip.findOne({ id });
-    }
+    const trip = await findOwnedTripById(id, req.user._id);
 
     if (!trip) {
       return res.status(404).json({ success: false, message: "Trip not found" });
@@ -146,12 +141,10 @@ const updateTrip = async (req, res) => {
       updateData.numberOfTravelers = Number(req.body.numberOfTravelers);
     }
 
-    let updated = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      updated = await Trip.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
-    } else {
-      updated = await Trip.findOneAndUpdate({ id }, updateData, { new: true, runValidators: true });
-    }
+    const ownedTrip = await findOwnedTripById(id, req.user._id);
+    const updated = ownedTrip
+      ? await Trip.findByIdAndUpdate(ownedTrip._id, updateData, { new: true, runValidators: true })
+      : null;
 
     if (!updated) {
       return res.status(404).json({ success: false, message: "Trip not found" });
@@ -174,21 +167,16 @@ const updateTrip = async (req, res) => {
 const deleteTrip = async (req, res) => {
   try {
     const { id } = req.params;
-    let deleted = null;
-
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      deleted = await Trip.findByIdAndDelete(id);
-    } else {
-      deleted = await Trip.findOneAndDelete({ id });
-    }
+    const ownedTrip = await findOwnedTripById(id, req.user._id);
+    const deleted = ownedTrip ? await Trip.findByIdAndDelete(ownedTrip._id) : null;
 
     if (!deleted) {
       return res.status(404).json({ success: false, message: "Trip not found" });
     }
 
     // Cleanup associated expenses and itinerary
-    await Expense.deleteMany({ tripId: String(id) });
-    await Itinerary.deleteMany({ tripId: String(id) });
+    await Expense.deleteMany({ tripId: String(ownedTrip.id || ownedTrip._id) });
+    await Itinerary.deleteMany({ tripId: String(ownedTrip.id || ownedTrip._id) });
 
     res.status(200).json({
       success: true,
@@ -207,13 +195,7 @@ const getTripSummary = async (req, res) => {
   try {
     const { tripId } = req.params;
 
-    let targetTrip = null;
-    if (mongoose.Types.ObjectId.isValid(tripId)) {
-      targetTrip = await Trip.findById(tripId);
-    }
-    if (!targetTrip) {
-      targetTrip = await Trip.findOne({ id: tripId });
-    }
+    const targetTrip = await findOwnedTrip(tripId, req.user._id);
 
     if (!targetTrip) {
       return res.status(404).json({ success: false, message: "Trip not found" });

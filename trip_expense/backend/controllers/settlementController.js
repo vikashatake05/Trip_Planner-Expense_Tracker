@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Trip = require('../models/Trip');
 const Expense = require('../models/Expense');
 const calculateSettlement = require('../utils/settlementCalculator');
+const { findOwnedTrip } = require('../utils/ownership');
 
 /**
  * @desc    Get debt settlement calculations for a trip
@@ -11,13 +12,7 @@ const getSettlement = async (req, res) => {
   try {
     const { tripId } = req.params;
 
-    let targetTrip = null;
-    if (mongoose.Types.ObjectId.isValid(tripId)) {
-      targetTrip = await Trip.findById(tripId);
-    }
-    if (!targetTrip) {
-      targetTrip = await Trip.findOne({ id: tripId });
-    }
+    const targetTrip = await findOwnedTrip(tripId, req.user._id);
 
     if (!targetTrip) {
       return res.status(404).json({

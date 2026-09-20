@@ -60,7 +60,7 @@ export default function Profile() {
         <div className="form-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border-light)' }}>
             <div className="user-avatar" style={{ width: '64px', height: '64px', fontSize: '1.4rem' }}>
-              {currentUser?.avatar || 'VS'}
+              {currentUser?.user_metadata?.avatar || currentUser?.user_metadata?.name?.slice(0, 2).toUpperCase() || 'VS'}
             </div>
             <div>
               <h2 style={{ fontSize: '1.3rem', fontWeight: 700, margin: 0 }}>{currentUser?.name}</h2>

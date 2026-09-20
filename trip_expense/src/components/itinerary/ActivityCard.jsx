@@ -1,8 +1,8 @@
 import React from 'react';
 import { formatCurrency } from '../../utils/formatters';
-import { Clock, MapPin, IndianRupee, Trash2 } from 'lucide-react';
+import { Clock, MapPin, Trash2, Edit } from 'lucide-react';
 
-export default function ActivityCard({ activity, onDelete }) {
+export default function ActivityCard({ activity, onEdit, onDelete }) {
   return (
     <div className="expense-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.6rem' }}>
       <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -31,6 +31,16 @@ export default function ActivityCard({ activity, onDelete }) {
             <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--accent-success)' }}>
               ~{formatCurrency(activity.estimatedCost)}
             </span>
+          )}
+          {onEdit && (
+            <button
+              className="icon-btn"
+              style={{ width: '30px', height: '30px' }}
+              onClick={() => onEdit(activity)}
+              title="Edit Activity"
+            >
+              <Edit size={14} />
+            </button>
           )}
           {onDelete && (
             <button 

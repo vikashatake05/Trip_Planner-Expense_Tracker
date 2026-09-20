@@ -4,7 +4,7 @@ import DashboardLayout from '../components/layout/DashboardLayout';
 import ActivityCard from '../components/itinerary/ActivityCard';
 import ActivityFormModal from '../components/itinerary/ActivityFormModal';
 import { getTripById } from '../services/tripService';
-import { getItineraryByTripId, addActivity, deleteActivity } from '../services/itineraryService';
+import { getItineraryByTripId, addActivity, updateActivity, deleteActivity } from '../services/itineraryService';
 import { formatShortDate, formatCurrency } from '../utils/formatters';
 import { Calendar, Plus, MapPin, Clock } from 'lucide-react';
 
@@ -15,6 +15,8 @@ export default function TripPlan() {
   const [trip, setTrip] = useState(null);
   const [itinerary, setItinerary] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingActivity, setEditingActivity] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,8 +33,25 @@ export default function TripPlan() {
   }, [currentId]);
 
   const handleAddActivity = async (activityPayload) => {
-    const created = await addActivity(currentId, activityPayload);
-    setItinerary(prev => [...prev, created]);
+    const saved = activityPayload.id
+      ? await updateActivity(activityPayload.id, activityPayload)
+      : await addActivity(currentId, activityPayload);
+    setItinerary(prev => activityPayload.id
+      ? prev.map(item => item.id === saved.id ? saved : item)
+      : [...prev, saved]
+    );
+    setEditingActivity(null);
+  };
+
+  const openAddActivity = (date = null) => {
+    setEditingActivity(null);
+    setSelectedDate(date);
+    setIsModalOpen(true);
+  };
+
+  const openEditActivity = (activity) => {
+    setEditingActivity(activity);
+    setIsModalOpen(true);
   };
 
   const handleDeleteActivity = async (actId) => {
@@ -52,10 +71,20 @@ export default function TripPlan() {
     );
   }
 
-  // Group activities by date
+  const tripDates = [];
+  const start = new Date(`${trip?.startDate}T00:00:00`);
+  const end = new Date(`${trip?.endDate}T00:00:00`);
+  if (trip?.startDate && trip?.endDate && !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && start <= end) {
+    for (const date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+      tripDates.push(date.toISOString().split('T')[0]);
+    }
+  }
+
+  // Group activities by every date in the trip, including empty days.
   const groupedByDate = {};
+  tripDates.forEach(date => { groupedByDate[date] = []; });
   itinerary.forEach((act) => {
-    const d = act.date || trip?.startDate || 'Day 1';
+    const d = act.date;
     if (!groupedByDate[d]) groupedByDate[d] = [];
     groupedByDate[d].push(act);
   });
@@ -70,23 +99,20 @@ export default function TripPlan() {
           <p className="page-subtitle">Schedule activities and daily plans for {trip?.name}</p>
         </div>
 
-        <button className="btn-primary" style={{ width: 'auto' }} onClick={() => setIsModalOpen(true)}>
+        <button className="btn-primary" style={{ width: 'auto' }} onClick={openAddActivity}>
           <Plus size={18} />
           <span>Add Activity</span>
         </button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-        {datesList.length === 0 ? (
+        {!trip?.startDate || !trip?.endDate || tripDates.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '3.5rem 1.5rem' }}>
             <Calendar size={40} style={{ color: 'var(--text-subtle)', margin: '0 auto 0.75rem' }} />
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>No Activities Added Yet</h3>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Trip dates are required</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
-              Start adding places to visit, tours, and dining plans for your trip.
+              Add a start date and end date to this trip before creating an itinerary.
             </p>
-            <button className="btn-primary" style={{ display: 'inline-flex', width: 'auto', marginTop: '1.25rem' }} onClick={() => setIsModalOpen(true)}>
-              + Add First Activity
-            </button>
           </div>
         ) : (
           datesList.map((dStr, idx) => {
@@ -110,6 +136,10 @@ export default function TripPlan() {
                     <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0 }}>
                       {formatShortDate(dStr)}
                     </h3>
+                    <button className="btn-secondary" style={{ width: 'auto', padding: '0.35rem 0.65rem', fontSize: '0.8rem' }} onClick={() => openAddActivity(dStr)}>
+                      <Plus size={14} />
+                      <span>Add Activity</span>
+                    </button>
                   </div>
 
                   {dayTotalCost > 0 && (
@@ -120,10 +150,13 @@ export default function TripPlan() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                  {dayActivities.map((act) => (
+                  {dayActivities.length === 0 ? (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No activities planned for this day.</p>
+                  ) : [...dayActivities].sort((a, b) => (a.startTime || '99:99').localeCompare(b.startTime || '99:99')).map((act) => (
                     <ActivityCard 
                       key={act.id} 
                       activity={act} 
+                      onEdit={openEditActivity}
                       onDelete={handleDeleteActivity} 
                     />
                   ))}
@@ -138,7 +171,8 @@ export default function TripPlan() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleAddActivity}
-        tripDates={{ startDate: trip?.startDate }}
+        tripDates={{ startDate: trip?.startDate, endDate: trip?.endDate, initialDate: selectedDate }}
+        activity={editingActivity}
       />
     </DashboardLayout>
   );

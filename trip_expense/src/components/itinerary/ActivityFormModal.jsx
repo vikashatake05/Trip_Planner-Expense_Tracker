@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Modal from '../common/Modal';
 
-export default function ActivityFormModal({ isOpen, onClose, onSave, tripDates = {} }) {
+export default function ActivityFormModal({ isOpen, onClose, onSave, tripDates = {}, activity = null }) {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(tripDates.startDate || '');
   const [startTime, setStartTime] = useState('10:00');
@@ -10,11 +10,23 @@ export default function ActivityFormModal({ isOpen, onClose, onSave, tripDates =
   const [estimatedCost, setEstimatedCost] = useState('');
   const [notes, setNotes] = useState('');
 
+  useEffect(() => {
+    if (!isOpen) return;
+    setTitle(activity?.title || '');
+    setDate(activity?.date || tripDates.initialDate || tripDates.startDate || '');
+    setStartTime(activity?.startTime || '');
+    setEndTime(activity?.endTime || '');
+    setLocation(activity?.location || '');
+    setEstimatedCost(activity?.estimatedCost ? String(activity.estimatedCost) : '');
+    setNotes(activity?.notes || '');
+  }, [activity, isOpen, tripDates.startDate]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim() || !date) return;
 
     onSave({
+      ...(activity?.id ? { id: activity.id } : {}),
       title: title.trim(),
       date,
       startTime,
@@ -24,15 +36,11 @@ export default function ActivityFormModal({ isOpen, onClose, onSave, tripDates =
       notes: notes.trim()
     });
 
-    setTitle('');
-    setLocation('');
-    setEstimatedCost('');
-    setNotes('');
     onClose();
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Add Activity to Itinerary">
+    <Modal isOpen={isOpen} onClose={onClose} title={activity ? 'Edit Activity' : 'Add Activity to Itinerary'}>
       <form onSubmit={handleSubmit} className="form-grid" style={{ gap: '1rem' }}>
         <div className="form-group">
           <label className="form-label">Activity Name *</label>
@@ -53,6 +61,8 @@ export default function ActivityFormModal({ isOpen, onClose, onSave, tripDates =
               type="date"
               className="form-input"
               value={date}
+              min={tripDates.startDate}
+              max={tripDates.endDate}
               onChange={(e) => setDate(e.target.value)}
               required
             />
@@ -119,7 +129,7 @@ export default function ActivityFormModal({ isOpen, onClose, onSave, tripDates =
             Cancel
           </button>
           <button type="submit" className="btn-primary" style={{ flex: 1 }}>
-            Save Activity
+            {activity ? 'Save Changes' : 'Save Activity'}
           </button>
         </div>
       </form>

@@ -1,6 +1,15 @@
 const mongoose = require('mongoose');
 const Itinerary = require('../models/Itinerary');
 const Trip = require('../models/Trip');
+const { findOwnedTrip } = require('../utils/ownership');
+
+const findOwnedItem = async (id, userId) => {
+  let item = null;
+  if (mongoose.Types.ObjectId.isValid(id)) item = await Itinerary.findById(id);
+  if (!item) item = await Itinerary.findOne({ id });
+  if (!item || !(await findOwnedTrip(item.tripId, userId))) return null;
+  return item;
+};
 
 /**
  * @desc    Add an activity to itinerary
@@ -18,18 +27,20 @@ const createItineraryItem = async (req, res) => {
     }
 
     let targetTrip = null;
-    if (mongoose.Types.ObjectId.isValid(tripId)) {
-      targetTrip = await Trip.findById(tripId);
-    }
-    if (!targetTrip) {
-      targetTrip = await Trip.findOne({ id: tripId });
-    }
+    targetTrip = await findOwnedTrip(tripId, req.user._id);
     if (!targetTrip) {
       return res.status(404).json({ success: false, message: "Trip not found" });
     }
 
+    if (date < targetTrip.startDate || date > targetTrip.endDate) {
+      return res.status(400).json({
+        success: false,
+        message: `Activity date must be between ${targetTrip.startDate} and ${targetTrip.endDate}`
+      });
+    }
+
     const payload = {
-      tripId: String(tripId),
+      tripId: String(targetTrip.id || targetTrip._id),
       date,
       title: title.trim(),
       startTime: startTime || '',
@@ -58,7 +69,9 @@ const createItineraryItem = async (req, res) => {
 const getItineraryByTrip = async (req, res) => {
   try {
     const { tripId } = req.params;
-    const items = await Itinerary.find({ tripId: String(tripId) }).sort({ date: 1, startTime: 1 });
+    const targetTrip = await findOwnedTrip(tripId, req.user._id);
+    if (!targetTrip) return res.status(404).json({ success: false, message: 'Trip not found' });
+    const items = await Itinerary.find({ tripId: String(targetTrip.id || targetTrip._id) }).sort({ date: 1, startTime: 1 });
 
     res.status(200).json({
       success: true,
@@ -77,13 +90,7 @@ const getItineraryByTrip = async (req, res) => {
 const getItineraryItemById = async (req, res) => {
   try {
     const { id } = req.params;
-    let item = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      item = await Itinerary.findById(id);
-    }
-    if (!item) {
-      item = await Itinerary.findOne({ id });
-    }
+    const item = await findOwnedItem(id, req.user._id);
     if (!item) {
       return res.status(404).json({ success: false, message: "Itinerary item not found" });
     }
@@ -111,12 +118,20 @@ const updateItineraryItem = async (req, res) => {
     if (estimatedCost !== undefined) updateData.estimatedCost = Number(estimatedCost);
     if (notes !== undefined) updateData.notes = notes.trim();
 
-    let updated = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      updated = await Itinerary.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
-    } else {
-      updated = await Itinerary.findOneAndUpdate({ id }, updateData, { new: true, runValidators: true });
+    const current = await findOwnedItem(id, req.user._id);
+    if (!current) {
+      return res.status(404).json({ success: false, message: "Itinerary item not found" });
     }
+    const currentTrip = await findOwnedTrip(current.tripId, req.user._id);
+    if (updateData.date && (updateData.date < currentTrip.startDate || updateData.date > currentTrip.endDate)) {
+      return res.status(400).json({
+        success: false,
+        message: `Activity date must be between ${currentTrip.startDate} and ${currentTrip.endDate}`
+      });
+    }
+    const updated = current
+      ? await Itinerary.findByIdAndUpdate(current._id, updateData, { new: true, runValidators: true })
+      : null;
 
     if (!updated) {
       return res.status(404).json({ success: false, message: "Itinerary item not found" });
@@ -139,13 +154,8 @@ const updateItineraryItem = async (req, res) => {
 const deleteItineraryItem = async (req, res) => {
   try {
     const { id } = req.params;
-    let deleted = null;
-
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      deleted = await Itinerary.findByIdAndDelete(id);
-    } else {
-      deleted = await Itinerary.findOneAndDelete({ id });
-    }
+    const current = await findOwnedItem(id, req.user._id);
+    const deleted = current ? await Itinerary.findByIdAndDelete(current._id) : null;
 
     if (!deleted) {
       return res.status(404).json({ success: false, message: "Itinerary item not found" });

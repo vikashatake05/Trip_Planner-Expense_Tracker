@@ -2,7 +2,6 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Public Pages
-import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
@@ -26,15 +25,17 @@ import Notifications from './pages/Notifications';
 
 // Auth Guard
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import PublicOnlyRoute from './components/layout/PublicOnlyRoute';
+import RootRedirect from './components/layout/RootRedirect';
 
 export default function App() {
   return (
     <Router>
       <Routes>
         {/* PUBLIC ROUTES */}
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/" element={<RootRedirect />} />
+        <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+        <Route path="/signup" element={<PublicOnlyRoute><Signup /></PublicOnlyRoute>} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/invite/:token" element={<Invitation />} />
 
@@ -121,6 +122,15 @@ export default function App() {
         />
 
         <Route 
+          path="/trips/:tripId/itinerary" 
+          element={
+            <ProtectedRoute>
+              <TripPlan />
+            </ProtectedRoute>
+          } 
+        />
+
+        <Route 
           path="/trips/:tripId/plan" 
           element={
             <ProtectedRoute>
@@ -166,7 +176,7 @@ export default function App() {
         />
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<RootRedirect />} />
       </Routes>
     </Router>
   );

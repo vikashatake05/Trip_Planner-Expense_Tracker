@@ -7,6 +7,12 @@ const memberSchema = new mongoose.Schema({
 }, { _id: false });
 
 const tripSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+    index: true
+  },
   name: {
     type: String,
     required: [true, 'Trip name is required'],

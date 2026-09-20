@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { supabase } from '../lib/supabase';
 
 /**
  * Axios instance preconfigured for Node.js / Express backend
@@ -14,10 +15,10 @@ const api = axios.create({
 
 // Interceptor to attach Authorization Bearer token when available
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('tripledger_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+  async (config) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      config.headers.Authorization = `Bearer ${session.access_token}`;
     }
     return config;
   },

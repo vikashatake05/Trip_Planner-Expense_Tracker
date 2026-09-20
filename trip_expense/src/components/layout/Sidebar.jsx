@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   Compass,
-  Home,
+  LayoutDashboard,
   PlusCircle,
   Map,
   CreditCard,
@@ -15,7 +15,7 @@ export default function Sidebar({ isOpen, onClose, currentTripId }) {
   const location = useLocation();
 
   const navItems = [
-    { label: 'Home', path: '/', icon: Home },
+    { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { label: 'New Trip', path: '/trips/new', icon: PlusCircle },
     { label: 'My Trips', path: '/trips', icon: Map },
     { 

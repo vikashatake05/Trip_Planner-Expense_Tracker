@@ -1,6 +1,16 @@
 const mongoose = require('mongoose');
 const Expense = require('../models/Expense');
 const Trip = require('../models/Trip');
+const { findOwnedTrip } = require('../utils/ownership');
+
+const findOwnedExpense = async (id, userId) => {
+  const trips = await Trip.find({ user: userId }).select('_id id');
+  const tripIds = trips.flatMap((trip) => [String(trip._id), trip.id].filter(Boolean));
+  const query = { tripId: { $in: tripIds } };
+  if (mongoose.Types.ObjectId.isValid(id)) query._id = id;
+  else query.id = id;
+  return Expense.findOne(query);
+};
 
 /**
  * Helper to process and validate expense split allocations
@@ -63,21 +73,21 @@ const processSplits = (amount, splitType, participants, splitsInput) => {
  */
 const createExpense = async (req, res) => {
   try {
-    const { 
-      tripId, 
-      description, 
-      title, 
-      amount, 
-      category, 
-      paidBy, 
-      paidById, 
-      splitType, 
-      splitMethod, 
-      participants, 
-      splitBetween, 
-      splits: splitsInput, 
-      splitShares, 
-      date 
+    const {
+      tripId,
+      description,
+      title,
+      amount,
+      category,
+      paidBy,
+      paidById,
+      splitType,
+      splitMethod,
+      participants,
+      splitBetween,
+      splits: splitsInput,
+      splitShares,
+      date
     } = req.body;
 
     const expDesc = (title || description || 'Expense').trim();
@@ -99,12 +109,7 @@ const createExpense = async (req, res) => {
     }
 
     let targetTrip = null;
-    if (mongoose.Types.ObjectId.isValid(tripId)) {
-      targetTrip = await Trip.findById(tripId);
-    }
-    if (!targetTrip) {
-      targetTrip = await Trip.findOne({ id: tripId });
-    }
+    targetTrip = await findOwnedTrip(tripId, req.user._id);
 
     if (!targetTrip) {
       return res.status(404).json({ success: false, message: "Trip not found" });
@@ -187,7 +192,11 @@ const createExpense = async (req, res) => {
 const getExpensesByTrip = async (req, res) => {
   try {
     const { tripId } = req.params;
-    const dbExpenses = await Expense.find({ tripId: String(tripId) }).sort({ createdAt: -1 });
+    const targetTrip = await findOwnedTrip(tripId, req.user._id);
+    if (!targetTrip) return res.status(404).json({ success: false, message: 'Trip not found' });
+    const trips = await Trip.find({ user: req.user._id }).select('_id id');
+    const tripIds = trips.flatMap((trip) => [String(trip._id), trip.id].filter(Boolean));
+    const dbExpenses = await Expense.find({ tripId: { $in: tripIds } }).sort({ createdAt: -1 });
     res.status(200).json({
       success: true,
       count: dbExpenses.length,
@@ -204,7 +213,9 @@ const getExpensesByTrip = async (req, res) => {
  */
 const getAllExpenses = async (req, res) => {
   try {
-    const expenses = await Expense.find().sort({ createdAt: -1 });
+    const trips = await Trip.find({ user: req.user._id }).select('_id id');
+    const tripIds = trips.flatMap((trip) => [String(trip._id), trip.id].filter(Boolean));
+    const expenses = await Expense.find({ tripId: { $in: tripIds } }).sort({ createdAt: -1 });
     res.status(200).json({ success: true, count: expenses.length, data: expenses });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -218,14 +229,7 @@ const getAllExpenses = async (req, res) => {
 const getExpenseById = async (req, res) => {
   try {
     const { id } = req.params;
-    let expense = null;
-
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      expense = await Expense.findById(id);
-    }
-    if (!expense) {
-      expense = await Expense.findOne({ id });
-    }
+    const expense = await findOwnedExpense(id, req.user._id);
 
     if (!expense) {
       return res.status(404).json({ success: false, message: "Expense not found" });
@@ -246,17 +250,14 @@ const updateExpense = async (req, res) => {
     const { id } = req.params;
     const { description, title, amount, category, paidBy, paidById, splitType, splitMethod, participants, splitBetween, splits: splitsInput, splitShares, date } = req.body;
 
-    let current = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      current = await Expense.findById(id);
-    }
-    if (!current) {
-      current = await Expense.findOne({ id });
-    }
+    const current = await findOwnedExpense(id, req.user._id);
 
     if (!current) {
       return res.status(404).json({ success: false, message: "Expense not found" });
     }
+
+    const currentTrip = await findOwnedTrip(current.tripId, req.user._id);
+    if (!currentTrip) return res.status(404).json({ success: false, message: 'Expense not found' });
 
     const newAmount = amount !== undefined ? Number(amount) : current.amount;
     if (isNaN(newAmount) || newAmount <= 0) {
@@ -283,16 +284,16 @@ const updateExpense = async (req, res) => {
       amount: newAmount,
       category: category !== undefined
         ? ({
-            food: 'food',
-            accommodation: 'accommodation',
-            stay: 'accommodation',
-            transport: 'transport',
-            activities: 'activities',
-            activity: 'activities',
-            shopping: 'shopping',
-            other: 'other',
-            others: 'other'
-          }[String(category).trim().toLowerCase()] || 'other')
+          food: 'food',
+          accommodation: 'accommodation',
+          stay: 'accommodation',
+          transport: 'transport',
+          activities: 'activities',
+          activity: 'activities',
+          shopping: 'shopping',
+          other: 'other',
+          others: 'other'
+        }[String(category).trim().toLowerCase()] || 'other')
         : current.category,
       paidBy: payer,
       paidById: String(paidById || payer),
@@ -305,12 +306,14 @@ const updateExpense = async (req, res) => {
       date: date !== undefined ? date : current.date
     };
 
-    let updated = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      updated = await Expense.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
-    } else {
-      updated = await Expense.findOneAndUpdate({ id }, updateData, { new: true, runValidators: true });
+    if (updateData.date < currentTrip.startDate || updateData.date > currentTrip.endDate) {
+      return res.status(400).json({
+        success: false,
+        message: `Expense date must be between ${currentTrip.startDate} and ${currentTrip.endDate}`
+      });
     }
+
+    const updated = await Expense.findByIdAndUpdate(current._id, updateData, { new: true, runValidators: true });
 
     res.status(200).json({
       success: true,
@@ -329,13 +332,8 @@ const updateExpense = async (req, res) => {
 const deleteExpense = async (req, res) => {
   try {
     const { id } = req.params;
-    let deleted = null;
-
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      deleted = await Expense.findByIdAndDelete(id);
-    } else {
-      deleted = await Expense.findOneAndDelete({ id });
-    }
+    const ownedExpense = await findOwnedExpense(id, req.user._id);
+    const deleted = ownedExpense ? await Expense.findByIdAndDelete(ownedExpense._id) : null;
 
     if (!deleted) {
       return res.status(404).json({ success: false, message: "Expense not found" });

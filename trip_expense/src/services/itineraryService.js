@@ -29,6 +29,15 @@ export const addActivity = async (tripId, activityData) => {
   }
 };
 
+export const updateActivity = async (activityId, activityData) => {
+  try {
+    const res = await api.patch(`/itinerary/${activityId}`, activityData);
+    if (res.data && res.data.success && res.data.data) return res.data.data;
+  } catch (err) {
+    throw new Error(`Unable to update activity: ${err.message}`);
+  }
+};
+
 export const deleteActivity = async (activityId) => {
   try {
     await api.delete(`/itinerary/${activityId}`);

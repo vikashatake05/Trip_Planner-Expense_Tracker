@@ -41,8 +41,13 @@ export default function Signup() {
     setError('');
 
     try {
-      await signupUser(name, email, password);
-      navigate('/dashboard');
+      const { session } = await signupUser(name, email, password);
+      if (session) {
+        navigate('/dashboard');
+      } else {
+        setError('Account created. Please check your email to verify your account.');
+        setLoading(false);
+      }
     } catch (err) {
       setError('Registration failed. Please try again.');
       setLoading(false);
