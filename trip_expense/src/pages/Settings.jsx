@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import Toast from '../components/common/Toast';
-import { logoutUser } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 import { Bell, Moon, Lock, LogOut } from 'lucide-react';
 
 export default function Settings() {
   const navigate = useNavigate();
+  const { signOut } = useAuth();
 
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [inviteNotifs, setInviteNotifs] = useState(true);
@@ -14,9 +15,9 @@ export default function Settings() {
   const [theme, setTheme] = useState('Light');
   const [toastMessage, setToastMessage] = useState('');
 
-  const handleLogout = () => {
-    logoutUser();
-    navigate('/login');
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login', { replace: true });
   };
 
   const handleSaveSettings = (e) => {

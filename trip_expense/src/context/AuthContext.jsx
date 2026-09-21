@@ -9,6 +9,22 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      const errorMessage = error.message?.toLowerCase() || '';
+      const sessionIsGone = error.name === 'AuthSessionMissingError'
+        || error.status === 401
+        || errorMessage.includes('session') && errorMessage.includes('missing');
+
+      if (!sessionIsGone) throw error;
+    }
+
+    setSession(null);
+    setUser(null);
+    setCurrentUserCache(null);
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -35,7 +51,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ session, user, isLoading }}>
+    <AuthContext.Provider value={{ session, user, isLoading, signOut }}>
       {children}
     </AuthContext.Provider>
   );

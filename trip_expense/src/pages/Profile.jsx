@@ -12,6 +12,7 @@ export default function Profile() {
   const [email, setEmail] = useState('');
   const [stats, setStats] = useState({ created: 0, joined: 0, total: 0 });
   const [toastMessage, setToastMessage] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -22,10 +23,14 @@ export default function Profile() {
         setName(user.name || '');
         setEmail(user.email || '');
 
-        const trips = await getAllTrips();
-        const created = trips.filter(t => t.ownerId === user.id || t.createdBy === user.name).length;
-        const joined = trips.filter(t => t.ownerId !== user.id && t.createdBy !== user.name).length;
-        setStats({ created, joined, total: trips.length });
+        try {
+          const trips = await getAllTrips();
+          const created = trips.filter(t => t.ownerId === user.id || t.createdBy === user.name).length;
+          const joined = trips.filter(t => t.ownerId !== user.id && t.createdBy !== user.name).length;
+          setStats({ created, joined, total: trips.length });
+        } catch (error) {
+          setLoadError('Unable to load your trip statistics right now.');
+        }
       }
     }
     loadProfile();
@@ -105,6 +110,7 @@ export default function Profile() {
       </div>
 
       <Toast message={toastMessage} type="success" onClose={() => setToastMessage('')} />
+      <Toast message={loadError} type="error" onClose={() => setLoadError('')} duration={6000} />
     </DashboardLayout>
   );
 }

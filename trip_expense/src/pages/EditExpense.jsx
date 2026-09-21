@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
+import Toast from '../components/common/Toast';
 import { getTripById } from '../services/tripService';
 import { getExpenseById, updateExpense, deleteExpense } from '../services/expenseService';
 import { ArrowLeft, IndianRupee, Trash2 } from 'lucide-react';
@@ -17,26 +18,32 @@ export default function EditExpense() {
   const [description, setDescription] = useState('');
   const [paidById, setPaidById] = useState('');
   const [date, setDate] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     async function loadData() {
-      const [tData, expData] = await Promise.all([
-        getTripById(currentId),
-        getExpenseById(expenseId)
-      ]);
-      setTrip(tData);
+      try {
+        const [tData, expData] = await Promise.all([
+          getTripById(currentId),
+          getExpenseById(expenseId)
+        ]);
+        setTrip(tData);
 
-      if (expData) {
-        setTitle(expData.title || '');
-        setAmount(expData.amount || '');
-        setCategory(expData.category || 'Food');
-        setDescription(expData.description || '');
-        setPaidById(expData.paidById || '');
-        setDate(expData.date || new Date().toISOString().split('T')[0]);
+        if (expData) {
+          setTitle(expData.title || '');
+          setAmount(expData.amount || '');
+          setCategory(expData.category || 'Food');
+          setDescription(expData.description || '');
+          setPaidById(expData.paidById || '');
+          setDate(expData.date || new Date().toISOString().split('T')[0]);
+        }
+      } catch (error) {
+        setLoadError('Unable to load this expense. Please return to the trip and try again.');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     loadData();
   }, [currentId, expenseId]);
@@ -193,6 +200,7 @@ export default function EditExpense() {
           </form>
         </div>
       </div>
+      <Toast message={loadError} type="error" onClose={() => setLoadError('')} duration={6000} />
     </DashboardLayout>
   );
 }

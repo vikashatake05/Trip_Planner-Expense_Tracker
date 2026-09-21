@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import ActivityCard from '../components/itinerary/ActivityCard';
 import ActivityFormModal from '../components/itinerary/ActivityFormModal';
+import Toast from '../components/common/Toast';
 import { getTripById } from '../services/tripService';
 import { getItineraryByTripId, addActivity, updateActivity, deleteActivity } from '../services/itineraryService';
 import { formatShortDate, formatCurrency } from '../utils/formatters';
@@ -17,17 +18,23 @@ export default function TripPlan() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadPlanData() {
-      const [tData, planData] = await Promise.all([
-        getTripById(currentId),
-        getItineraryByTripId(currentId)
-      ]);
-      setTrip(tData);
-      setItinerary(planData);
-      setLoading(false);
+      try {
+        const [tData, planData] = await Promise.all([
+          getTripById(currentId),
+          getItineraryByTripId(currentId)
+        ]);
+        setTrip(tData);
+        setItinerary(planData);
+      } catch (error) {
+        setLoadError('Unable to load the itinerary right now. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     }
     loadPlanData();
   }, [currentId]);
@@ -174,6 +181,7 @@ export default function TripPlan() {
         tripDates={{ startDate: trip?.startDate, endDate: trip?.endDate, initialDate: selectedDate }}
         activity={editingActivity}
       />
+      <Toast message={loadError} type="error" onClose={() => setLoadError('')} duration={6000} />
     </DashboardLayout>
   );
 }

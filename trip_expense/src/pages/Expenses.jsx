@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import ExpenseCard from '../components/expenses/ExpenseCard';
 import ExpenseFilters from '../components/expenses/ExpenseFilters';
+import Toast from '../components/common/Toast';
 import { getTripById } from '../services/tripService';
 import { getExpensesByTripId, deleteExpense } from '../services/expenseService';
 import { formatCurrency } from '../utils/formatters';
@@ -18,17 +19,23 @@ export default function Expenses() {
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('newest');
+  const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
-      const [tData, expData] = await Promise.all([
-        getTripById(currentId),
-        getExpensesByTripId(currentId)
-      ]);
-      setTrip(tData);
-      setExpenses(expData);
-      setLoading(false);
+      try {
+        const [tData, expData] = await Promise.all([
+          getTripById(currentId),
+          getExpensesByTripId(currentId)
+        ]);
+        setTrip(tData);
+        setExpenses(expData);
+      } catch (error) {
+        setLoadError('Unable to load expenses right now. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     }
     loadData();
   }, [currentId]);
@@ -123,6 +130,7 @@ export default function Expenses() {
           )}
         </div>
       </div>
+      <Toast message={loadError} type="error" onClose={() => setLoadError('')} duration={6000} />
     </DashboardLayout>
   );
 }

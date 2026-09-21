@@ -19,16 +19,22 @@ export default function TripMembers() {
   const [inviteName, setInviteName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [toastMessage, setToastMessage] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadMembersData() {
-      const user = getCurrentUser();
-      setCurrentUser(user);
+      try {
+        const user = getCurrentUser();
+        setCurrentUser(user);
 
-      const tData = await getTripById(currentId);
-      setTrip(tData);
-      setLoading(false);
+        const tData = await getTripById(currentId);
+        setTrip(tData);
+      } catch (error) {
+        setLoadError('Unable to load trip members right now. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     }
     loadMembersData();
   }, [currentId]);
@@ -149,6 +155,7 @@ export default function TripMembers() {
       </Modal>
 
       <Toast message={toastMessage} type="success" onClose={() => setToastMessage('')} />
+      <Toast message={loadError} type="error" onClose={() => setLoadError('')} duration={6000} />
     </DashboardLayout>
   );
 }

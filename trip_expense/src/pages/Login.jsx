@@ -110,19 +110,6 @@ export default function Login() {
           </button>
         </form>
 
-        <div style={{ textTransform: 'uppercase', fontSize: '0.75rem', color: 'var(--text-subtle)', textAlign: 'center', margin: '1.5rem 0', fontWeight: 600 }}>
-          Or continue with
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-          <button type="button" className="btn-secondary" onClick={handleSubmit}>
-            Google
-          </button>
-          <button type="button" className="btn-secondary" onClick={handleSubmit}>
-            GitHub
-          </button>
-        </div>
-
         <div style={{ textAlign: 'center', marginTop: '1.75rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
           Don't have an account?{' '}
           <Link to="/signup" style={{ color: 'var(--primary)', fontWeight: 600 }}>

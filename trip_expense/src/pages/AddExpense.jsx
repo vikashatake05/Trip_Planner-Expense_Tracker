@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
+import Toast from '../components/common/Toast';
 import { getTripById } from '../services/tripService';
 import { addExpense } from '../services/expenseService';
 import { calculateEqualSplit, calculatePercentageSplit, validateCustomSplit } from '../utils/expenseCalculations';
@@ -25,20 +26,25 @@ export default function AddExpense() {
   const [customAmounts, setCustomAmounts] = useState({});
 
   const [errors, setErrors] = useState({});
+  const [loadError, setLoadError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     async function loadTrip() {
-      const tData = await getTripById(currentId);
-      setTrip(tData);
-      if (tData?.startDate && tData?.endDate) {
-        const today = getTodayString();
-        const firstAllowedDate = tData.startDate > today ? tData.startDate : today;
-        setDate(firstAllowedDate <= tData.endDate ? firstAllowedDate : tData.startDate);
-      }
-      if (tData && tData.members && tData.members.length > 0) {
-        setPaidById(tData.members[0].userId || tData.members[0].id || 'usr_101');
-        setSplitBetween(tData.members.map(m => m.userId || m.id || m.name));
+      try {
+        const tData = await getTripById(currentId);
+        setTrip(tData);
+        if (tData?.startDate && tData?.endDate) {
+          const today = getTodayString();
+          const firstAllowedDate = tData.startDate > today ? tData.startDate : today;
+          setDate(firstAllowedDate <= tData.endDate ? firstAllowedDate : tData.startDate);
+        }
+        if (tData && tData.members && tData.members.length > 0) {
+          setPaidById(tData.members[0].userId || tData.members[0].id || 'usr_101');
+          setSplitBetween(tData.members.map(m => m.userId || m.id || m.name));
+        }
+      } catch (error) {
+        setLoadError('Unable to load this trip. Please return to My Trips and try again.');
       }
     }
     loadTrip();
@@ -305,6 +311,7 @@ export default function AddExpense() {
           </form>
         </div>
       </div>
+      <Toast message={loadError} type="error" onClose={() => setLoadError('')} duration={6000} />
     </DashboardLayout>
   );
 }

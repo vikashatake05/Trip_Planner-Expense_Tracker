@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
+import Toast from '../components/common/Toast';
 import { getTripById } from '../services/tripService';
 import { getExpensesByTripId } from '../services/expenseService';
 import { formatCurrency } from '../utils/formatters';
@@ -12,6 +13,7 @@ export default function SplitExpense() {
 
   const [trip, setTrip] = useState(null);
   const [expenses, setExpenses] = useState([]);
+  const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,13 +23,18 @@ export default function SplitExpense() {
         return;
       }
 
-      const [tData, expData] = await Promise.all([
-        getTripById(currentId),
-        getExpensesByTripId(currentId)
-      ]);
-      setTrip(tData);
-      setExpenses(expData);
-      setLoading(false);
+      try {
+        const [tData, expData] = await Promise.all([
+          getTripById(currentId),
+          getExpensesByTripId(currentId)
+        ]);
+        setTrip(tData);
+        setExpenses(expData);
+      } catch (error) {
+        setLoadError('Unable to load split details right now. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     }
     loadData();
   }, [currentId]);
@@ -129,6 +136,7 @@ export default function SplitExpense() {
           })
         )}
       </div>
+      <Toast message={loadError} type="error" onClose={() => setLoadError('')} duration={6000} />
     </DashboardLayout>
   );
 }

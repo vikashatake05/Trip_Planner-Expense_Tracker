@@ -1,5 +1,5 @@
-import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Compass,
   LayoutDashboard,
@@ -8,11 +8,19 @@ import {
   CreditCard,
   PieChart,
   User,
+  LogOut,
   X
 } from 'lucide-react';
+import Modal from '../common/Modal';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Sidebar({ isOpen, onClose, currentTripId }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
 
   const navItems = [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -30,6 +38,28 @@ export default function Sidebar({ isOpen, onClose, currentTripId }) {
     },
     { label: 'Profile', path: '/profile', icon: User }
   ];
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    setLogoutError('');
+
+    try {
+      await signOut();
+      navigate('/login', { replace: true });
+    } catch (error) {
+      const errorMessage = error?.message?.toLowerCase() || '';
+      const sessionIsGone = error?.name === 'AuthSessionMissingError'
+        || error?.status === 401
+        || errorMessage.includes('session') && errorMessage.includes('missing');
+
+      if (sessionIsGone) {
+        navigate('/login', { replace: true });
+      } else {
+        setLogoutError('We could not log you out. Please try again.');
+        setIsLoggingOut(false);
+      }
+    }
+  };
 
   return (
     <>
@@ -73,6 +103,18 @@ export default function Sidebar({ isOpen, onClose, currentTripId }) {
               </NavLink>
             );
           })}
+          <button
+            type="button"
+            className="nav-item"
+            style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}
+            onClick={() => {
+              setLogoutError('');
+              setIsLogoutModalOpen(true);
+            }}
+          >
+            <LogOut className="icon" />
+            <span>Logout</span>
+          </button>
         </nav>
 
         <div className="sidebar-footer">
@@ -85,6 +127,38 @@ export default function Sidebar({ isOpen, onClose, currentTripId }) {
           </div>
         </div>
       </aside>
+
+      <Modal
+        isOpen={isLogoutModalOpen}
+        onClose={() => {
+          if (!isLoggingOut) setIsLogoutModalOpen(false);
+        }}
+        title="Log out"
+      >
+        <p style={{ marginBottom: '1.5rem' }}>Are you sure you want to log out?</p>
+        {logoutError && (
+          <p style={{ color: 'var(--accent-danger)', marginBottom: '1rem' }}>{logoutError}</p>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => setIsLogoutModalOpen(false)}
+            disabled={isLoggingOut}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            style={{ width: 'auto' }}
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+          >
+            {isLoggingOut ? 'Logging out...' : 'Logout'}
+          </button>
+        </div>
+      </Modal>
     </>
   );
 }

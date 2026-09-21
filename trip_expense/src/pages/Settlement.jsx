@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import BalanceCard from '../components/split/BalanceCard';
 import SettlementList from '../components/split/SettlementList';
+import Toast from '../components/common/Toast';
 import { getTripById } from '../services/tripService';
 import { getExpensesByTripId } from '../services/expenseService';
 import { getSettlement } from '../services/settlementService';
@@ -19,22 +20,28 @@ export default function Settlement() {
   const [expenses, setExpenses] = useState([]);
   const [settlementData, setSettlementData] = useState({ balances: [], settlements: [] });
   const [currentUser, setCurrentUser] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
-      const user = getCurrentUser();
-      setCurrentUser(user);
+      try {
+        const user = getCurrentUser();
+        setCurrentUser(user);
 
-      const [tData, expData, settlementResult] = await Promise.all([
-        getTripById(currentId),
-        getExpensesByTripId(currentId),
-        getSettlement(currentId)
-      ]);
-      setTrip(tData);
-      setExpenses(expData);
-      setSettlementData(settlementResult);
-      setLoading(false);
+        const [tData, expData, settlementResult] = await Promise.all([
+          getTripById(currentId),
+          getExpensesByTripId(currentId),
+          getSettlement(currentId)
+        ]);
+        setTrip(tData);
+        setExpenses(expData);
+        setSettlementData(settlementResult);
+      } catch (error) {
+        setLoadError('Unable to calculate settlements right now. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     }
     loadData();
   }, [currentId]);
@@ -121,6 +128,7 @@ export default function Settlement() {
           </p>
         </div>
       </div>
+      <Toast message={loadError} type="error" onClose={() => setLoadError('')} duration={6000} />
     </DashboardLayout>
   );
 }

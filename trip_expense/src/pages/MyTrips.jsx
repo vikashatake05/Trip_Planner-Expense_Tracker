@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import TripCard from '../components/trips/TripCard';
 import Toast from '../components/common/Toast';
-import { getCurrentUser } from '../services/authService';
 import { getAllTrips, deleteTrip } from '../services/tripService';
 import { getExpensesByTripId } from '../services/expenseService';
 import { calculateTotalExpenses, getTripStatus } from '../utils/tripCalculations';
@@ -13,24 +12,26 @@ export default function MyTrips() {
   const [activeTab, setActiveTab] = useState('All');
   const [allTrips, setAllTrips] = useState([]);
   const [tripExpensesMap, setTripExpensesMap] = useState({});
-  const [currentUser, setCurrentUser] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadTrips() {
-      const user = getCurrentUser();
-      setCurrentUser(user);
+      try {
+        const trips = await getAllTrips();
+        setAllTrips(trips);
 
-      const trips = await getAllTrips();
-      setAllTrips(trips);
-
-      const expMap = {};
-      for (const t of trips) {
-        expMap[t.id] = await getExpensesByTripId(t.id);
+        const expMap = {};
+        for (const t of trips) {
+          expMap[t.id] = await getExpensesByTripId(t.id);
+        }
+        setTripExpensesMap(expMap);
+      } catch (error) {
+        setLoadError('Unable to load trips right now. Please try again.');
+      } finally {
+        setLoading(false);
       }
-      setTripExpensesMap(expMap);
-      setLoading(false);
     }
     loadTrips();
   }, []);
@@ -53,22 +54,9 @@ export default function MyTrips() {
     );
   }
 
-  // Filter user created vs joined trips
-  const createdTrips = allTrips.filter((t) => {
-    if (!currentUser) return true;
-    const isOwnerIdMatch = t.ownerId && String(t.ownerId) === String(currentUser.id);
-    const isCreatedByMatch = t.createdBy && (
-      t.createdBy.toLowerCase() === currentUser.name?.toLowerCase() ||
-      currentUser.name?.toLowerCase().includes(t.createdBy.toLowerCase()) ||
-      t.createdBy.toLowerCase().includes(currentUser.name?.toLowerCase())
-    );
-    const isMemberOwner = Array.isArray(t.members) && t.members.some(m => 
-      (m.userId === currentUser.id || m.id === currentUser.id) && m.role === 'OWNER'
-    );
-    return isOwnerIdMatch || isCreatedByMatch || isMemberOwner;
-  });
-
-  const joinedTrips = allTrips.filter((t) => !createdTrips.some(ct => ct.id === t.id));
+  // The backend returns only trips accessible to the authenticated user.
+  const createdTrips = allTrips;
+  const joinedTrips = [];
 
   // Tab filtering logic
   const filterByTab = (tripsList) => {
@@ -167,6 +155,7 @@ export default function MyTrips() {
       </div>
 
       <Toast message={toastMessage} type="success" onClose={() => setToastMessage('')} />
+      <Toast message={loadError} type="error" onClose={() => setLoadError('')} duration={6000} />
     </DashboardLayout>
   );
 }

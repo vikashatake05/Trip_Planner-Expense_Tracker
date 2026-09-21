@@ -26,27 +26,33 @@ export default function HomeDashboard() {
   const [tripExpensesMap, setTripExpensesMap] = useState({});
   const [notifications, setNotifications] = useState([]);
   const [toastMessage, setToastMessage] = useState('');
+  const [dashboardError, setDashboardError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
-      const user = getCurrentUser();
-      setCurrentUser(user);
+      try {
+        const user = getCurrentUser();
+        setCurrentUser(user);
 
-      if (user) {
-        const trips = await getUserTrips(user.id, user.email);
-        setUserTrips(trips);
+        if (user) {
+          const trips = await getUserTrips();
+          setUserTrips(trips);
 
-        const expMap = {};
-        for (const t of trips) {
-          expMap[t.id] = await getExpensesByTripId(t.id);
+          const expMap = {};
+          for (const t of trips) {
+            expMap[t.id] = await getExpensesByTripId(t.id);
+          }
+          setTripExpensesMap(expMap);
+
+          const notifs = getItem(STORAGE_KEYS.NOTIFICATIONS, []);
+          setNotifications(notifs);
         }
-        setTripExpensesMap(expMap);
-
-        const notifs = getItem(STORAGE_KEYS.NOTIFICATIONS, []);
-        setNotifications(notifs);
+      } catch (error) {
+        setDashboardError('Unable to load your trips right now. Please try again.');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     loadData();
@@ -200,6 +206,7 @@ export default function HomeDashboard() {
       </div>
 
       <Toast message={toastMessage} type="success" onClose={() => setToastMessage('')} />
+      <Toast message={dashboardError} type="error" onClose={() => setDashboardError('')} duration={6000} />
     </DashboardLayout>
   );
 }

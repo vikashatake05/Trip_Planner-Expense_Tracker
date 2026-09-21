@@ -107,11 +107,11 @@ export default function CreateTrip() {
     setTripType(type);
     if (type === 'Solo') {
       setNumberOfTravelers(1);
-      setMembers([{ id: '1', name: 'Vikas', email: 'vikas@example.com' }]);
+      setMembers([{ id: user?.id || 'usr_101', name: user?.name || 'Traveler', email: user?.email || '' }]);
     } else {
       setNumberOfTravelers(3);
       setMembers([
-        { id: '1', name: 'Vikas', email: 'vikas@example.com' },
+        { id: user?.id || 'usr_101', name: user?.name || 'Traveler', email: user?.email || '' },
         { id: '2', name: 'Rahul', email: 'rahul@example.com' },
         { id: '3', name: 'Arjun', email: 'arjun@example.com' }
       ]);

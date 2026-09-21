@@ -59,15 +59,8 @@ export const deleteTrip = async (tripId) => {
   }
 };
 
-export const getUserTrips = async (userId, userEmail) => {
-  const trips = await getAllTrips();
-  return trips.filter((t) => {
-    if (String(t.ownerId) === String(userId)) return true;
-    if (t.members && t.members.some(m => String(m.userId) === String(userId) || (m.email && m.email.toLowerCase() === (userEmail || '').toLowerCase()))) {
-      return true;
-    }
-    return false;
-  });
+export const getUserTrips = async () => {
+  return getAllTrips();
 };
 
 export const getTripExpenses = getExpensesByTripId;
